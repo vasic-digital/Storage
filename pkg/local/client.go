@@ -19,6 +19,21 @@ import (
 // metaSuffix is appended to object paths to store sidecar metadata.
 const metaSuffix = ".meta"
 
+// jsonMarshal is the JSON marshaling function. Can be overridden for testing.
+var jsonMarshal = json.Marshal
+
+// filepathRel is the filepath.Rel function. Can be overridden for testing.
+var filepathRel = filepath.Rel
+
+// ioCopy is the io.Copy function. Can be overridden for testing.
+var ioCopy = io.Copy
+
+// osReadDir is the os.ReadDir function. Can be overridden for testing.
+var osReadDir = os.ReadDir
+
+// osStat is the os.Stat function. Can be overridden for testing.
+var osStat = os.Stat
+
 // Client implements object.ObjectStore and object.BucketManager using
 // the local filesystem. Buckets map to directories and objects map to files.
 type Client struct {
@@ -146,7 +161,7 @@ func (c *Client) ListBuckets(
 		return nil, fmt.Errorf("not connected to local storage")
 	}
 
-	entries, err := os.ReadDir(c.rootDir)
+	entries, err := osReadDir(c.rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list buckets: %w", err)
 	}
@@ -179,7 +194,7 @@ func (c *Client) BucketExists(_ context.Context, name string) (bool, error) {
 	}
 
 	bucketPath := filepath.Join(c.rootDir, name)
-	info, err := os.Stat(bucketPath)
+	info, err := osStat(bucketPath)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -322,7 +337,7 @@ func (c *Client) ListObjects(
 			return nil
 		}
 
-		relPath, err := filepath.Rel(bucketPath, path)
+		relPath, err := filepathRel(bucketPath, path)
 		if err != nil {
 			return err
 		}
@@ -423,7 +438,7 @@ func (c *Client) CopyObject(
 	}
 	defer func() { _ = dstFile.Close() }()
 
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
+	if _, err := ioCopy(dstFile, srcFile); err != nil {
 		return fmt.Errorf("failed to copy object: %w", err)
 	}
 
@@ -460,7 +475,7 @@ type sidecarMeta struct {
 
 func writeSidecar(objPath string, meta *sidecarMeta) error {
 	meta.CreatedAt = time.Now()
-	data, err := json.Marshal(meta)
+	data, err := jsonMarshal(meta)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}

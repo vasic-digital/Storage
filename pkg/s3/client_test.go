@@ -3,12 +3,14 @@ package s3
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -988,6 +990,93 @@ func TestClient_ConfigWithAllFields(t *testing.T) {
 	assert.Equal(t, config.PartSize, client.config.PartSize)
 }
 
+func TestClient_Connect_MinioNewError(t *testing.T) {
+	// Test the error path when minio.New fails
+	client, err := NewClient(nil, nil)
+	require.NoError(t, err)
+
+	// Inject a failing factory
+	client.SetMinioFactoryForTest(func(
+		_ string,
+		_ *minio.Options,
+	) (*minio.Client, error) {
+		return nil, fmt.Errorf("minio client creation failed")
+	})
+
+	ctx := context.Background()
+	err = client.Connect(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create S3 client")
+	assert.Contains(t, err.Error(), "minio client creation failed")
+	assert.False(t, client.IsConnected())
+}
+
+func TestClient_Connect_NilFactory(t *testing.T) {
+	// Test that when minioFactory is nil, it falls back to default
+	// This happens in Connect when minioFactory wasn't set
+	client, err := NewClient(nil, nil)
+	require.NoError(t, err)
+
+	// Manually nil out the factory to test the fallback
+	client.mu.Lock()
+	client.minioFactory = nil
+	client.mu.Unlock()
+
+	// Connect will fail due to invalid endpoint, but we're testing the nil factory path
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err = client.Connect(ctx)
+	require.Error(t, err)
+	// The default factory should have been used (minio.New)
+	// It will fail to connect, but the point is it didn't panic from nil factory
+	assert.Contains(t, err.Error(), "failed to connect")
+}
+
+// mockMinioClientForConnect is a minimal implementation for testing Connect success
+type mockMinioClientForConnect struct {
+	listBucketsFunc func(ctx context.Context) ([]minio.BucketInfo, error)
+}
+
+func (m *mockMinioClientForConnect) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
+	if m.listBucketsFunc != nil {
+		return m.listBucketsFunc(ctx)
+	}
+	return []minio.BucketInfo{}, nil
+}
+
+func TestClient_Connect_SuccessPath(t *testing.T) {
+	// Test the full success path of Connect (lines 92-94)
+	// We need a factory that returns a client that can ListBuckets successfully
+
+	client, err := NewClient(nil, nil)
+	require.NoError(t, err)
+
+	// Create a wrapper type that embeds *minio.Client but overrides ListBuckets
+	// Since minio.Client is the actual type returned, we can't easily mock it
+	// The solution is to use SetMinioClientForTest after simulating Connect
+
+	// Since we can't easily mock the minio.New return value, we'll verify
+	// the success path by using SetMinioClientForTest and checking state
+	mock := &mockMinioClient{
+		listBucketsFunc: func(ctx context.Context) ([]minio.BucketInfo, error) {
+			return []minio.BucketInfo{{Name: "bucket1"}}, nil
+		},
+	}
+
+	// Directly set the mock and connected state (simulating successful connect)
+	client.SetMinioClientForTest(mock)
+
+	// Verify the success state
+	assert.True(t, client.IsConnected())
+
+	// Now test that operations work
+	ctx := context.Background()
+	buckets, err := client.ListBuckets(ctx)
+	require.NoError(t, err)
+	assert.Len(t, buckets, 1)
+}
+
 func TestClient_ReaderVariations(t *testing.T) {
 	client, err := NewClient(nil, nil)
 	require.NoError(t, err)
@@ -1011,4 +1100,41 @@ func TestClient_ReaderVariations(t *testing.T) {
 			assert.Contains(t, err.Error(), "not connected")
 		})
 	}
+}
+
+func TestClient_Connect_SuccessWithTestHook(t *testing.T) {
+	// Save and restore the hook
+	origHook := connectTestHook
+	defer func() { connectTestHook = origHook }()
+
+	// Set up the mock to return on ListBuckets
+	mock := &mockMinioClient{
+		listBucketsFunc: func(ctx context.Context) ([]minio.BucketInfo, error) {
+			return []minio.BucketInfo{{Name: "test-bucket"}}, nil
+		},
+	}
+
+	// Install the test hook
+	connectTestHook = func(_ *minio.Client) MinioClient {
+		return mock
+	}
+
+	client, err := NewClient(nil, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	err = client.Connect(ctx)
+	require.NoError(t, err)
+	assert.True(t, client.IsConnected())
+
+	// Verify the mock is being used
+	buckets, err := client.ListBuckets(ctx)
+	require.NoError(t, err)
+	assert.Len(t, buckets, 1)
+	assert.Equal(t, "test-bucket", buckets[0].Name)
+}
+
+func TestClient_Connect_VerifyTestHookReset(t *testing.T) {
+	// Verify that connectTestHook is nil by default (reset from previous test)
+	assert.Nil(t, connectTestHook)
 }

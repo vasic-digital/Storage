@@ -16,14 +16,22 @@ import (
 	"digital.vasic.storage/pkg/object"
 )
 
+// MinioClientFactory is a function that creates a MinIO client.
+// This allows injection for testing.
+type MinioClientFactory func(endpoint string, opts *minio.Options) (*minio.Client, error)
+
+// defaultMinioFactory is the default MinIO client factory.
+var defaultMinioFactory MinioClientFactory = minio.New
+
 // Client implements object.ObjectStore and object.BucketManager for
 // S3-compatible storage (MinIO, AWS S3).
 type Client struct {
-	config      *Config
-	minioClient *minio.Client
-	logger      *logrus.Logger
-	mu          sync.RWMutex
-	connected   bool
+	config        *Config
+	minioClient   MinioClient
+	logger        *logrus.Logger
+	mu            sync.RWMutex
+	connected     bool
+	minioFactory  MinioClientFactory
 }
 
 // NewClient creates a new S3 client. If config is nil, DefaultConfig is used.
@@ -39,18 +47,36 @@ func NewClient(config *Config, logger *logrus.Logger) (*Client, error) {
 	}
 
 	return &Client{
-		config:    config,
-		logger:    logger,
-		connected: false,
+		config:       config,
+		logger:       logger,
+		connected:    false,
+		minioFactory: defaultMinioFactory,
 	}, nil
 }
+
+// SetMinioFactoryForTest allows injecting a custom MinIO client factory for testing.
+// This should only be used in tests.
+func (c *Client) SetMinioFactoryForTest(factory MinioClientFactory) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.minioFactory = factory
+}
+
+// connectTestHook allows tests to inject a mock client after factory creation.
+// When set, it replaces the created client. Only used in tests.
+var connectTestHook func(*minio.Client) MinioClient
 
 // Connect establishes a connection to the S3-compatible endpoint.
 func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	minioClient, err := minio.New(c.config.Endpoint, &minio.Options{
+	factory := c.minioFactory
+	if factory == nil {
+		factory = defaultMinioFactory
+	}
+
+	minioClient, err := factory(c.config.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(c.config.AccessKey, c.config.SecretKey, ""),
 		Secure: c.config.UseSSL,
 		Region: c.config.Region,
@@ -59,10 +85,16 @@ func (c *Client) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to create S3 client: %w", err)
 	}
 
-	c.minioClient = minioClient
+	// Allow test hook to replace the client
+	var mc MinioClient = minioClient
+	if connectTestHook != nil {
+		mc = connectTestHook(minioClient)
+	}
+
+	c.minioClient = mc
 
 	// Verify connectivity
-	_, err = minioClient.ListBuckets(ctx)
+	_, err = mc.ListBuckets(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to connect to S3: %w", err)
 	}
@@ -600,6 +632,15 @@ func (c *Client) RemoveLifecycleRule(
 	}).Info("Lifecycle rule removed")
 
 	return nil
+}
+
+// SetMinioClientForTest allows injecting a mock MinIO client for testing.
+// This should only be used in tests.
+func (c *Client) SetMinioClientForTest(mc MinioClient) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.minioClient = mc
+	c.connected = true
 }
 
 // Compile-time interface compliance checks.

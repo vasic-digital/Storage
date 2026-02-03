@@ -426,3 +426,98 @@ func TestCloudProviderInterface(t *testing.T) {
 		})
 	}
 }
+
+// --- HealthCheck error case tests ---
+
+func TestAWSProvider_HealthCheck_EmptyAccessKey(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewAWSProvider("ak", "sk", "us-east-1", nil)
+	require.NoError(t, err)
+
+	// Manually set AccessKeyID to empty to trigger error path
+	p.AccessKeyID = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AWS credentials not configured")
+}
+
+func TestAWSProvider_HealthCheck_EmptySecretKey(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewAWSProvider("ak", "sk", "us-east-1", nil)
+	require.NoError(t, err)
+
+	// Manually set SecretAccessKey to empty to trigger error path
+	p.SecretAccessKey = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AWS credentials not configured")
+}
+
+func TestAWSProvider_HealthCheck_BothEmpty(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewAWSProvider("ak", "sk", "us-east-1", nil)
+	require.NoError(t, err)
+
+	// Manually set both to empty
+	p.AccessKeyID = ""
+	p.SecretAccessKey = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AWS credentials not configured")
+}
+
+func TestGCPProvider_HealthCheck_EmptyProjectID(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewGCPProvider("proj", "us-central1", nil)
+	require.NoError(t, err)
+
+	// Manually set ProjectID to empty to trigger error path
+	p.ProjectID = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GCP project ID not configured")
+}
+
+func TestAzureProvider_HealthCheck_EmptySubscriptionID(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewAzureProvider("sub", "tenant", nil)
+	require.NoError(t, err)
+
+	// Manually set SubscriptionID to empty to trigger error path
+	p.SubscriptionID = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Azure credentials not configured")
+}
+
+func TestAzureProvider_HealthCheck_EmptyTenantID(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewAzureProvider("sub", "tenant", nil)
+	require.NoError(t, err)
+
+	// Manually set TenantID to empty to trigger error path
+	p.TenantID = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Azure credentials not configured")
+}
+
+func TestAzureProvider_HealthCheck_BothEmpty(t *testing.T) {
+	// Create a provider with valid credentials first
+	p, err := NewAzureProvider("sub", "tenant", nil)
+	require.NoError(t, err)
+
+	// Manually set both to empty
+	p.SubscriptionID = ""
+	p.TenantID = ""
+
+	err = p.HealthCheck(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Azure credentials not configured")
+}
