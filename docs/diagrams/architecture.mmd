@@ -1,0 +1,73 @@
+graph TD
+    subgraph "digital.vasic.storage"
+        subgraph "pkg/object"
+            ObjectStore["ObjectStore\n(interface)"]
+            BucketManager["BucketManager\n(interface)"]
+            ObjectInfo["ObjectInfo"]
+            BucketInfo["BucketInfo"]
+            BucketConfig["BucketConfig"]
+            ObjectRef["ObjectRef"]
+            Config["Config"]
+            PutOption["PutOption\n(functional option)"]
+        end
+
+        subgraph "pkg/s3"
+            S3Client["s3.Client"]
+            S3Config["s3.Config"]
+            S3BucketConfig["s3.BucketConfig"]
+            LifecycleRule["LifecycleRule"]
+        end
+
+        subgraph "pkg/local"
+            LocalClient["local.Client"]
+            LocalConfig["local.Config"]
+            SidecarMeta["sidecarMeta\n(.meta JSON)"]
+        end
+
+        subgraph "pkg/provider"
+            CloudProvider["CloudProvider\n(interface)"]
+            AWSProvider["AWSProvider"]
+            GCPProvider["GCPProvider"]
+            AzureProvider["AzureProvider"]
+            ProviderConfig["ProviderConfig"]
+        end
+    end
+
+    subgraph "External Dependencies"
+        MinioSDK["minio-go/v7"]
+        Logrus["logrus"]
+        Stdlib["Go stdlib\n(os, io, context)"]
+    end
+
+    S3Client -->|implements| ObjectStore
+    S3Client -->|implements| BucketManager
+    LocalClient -->|implements| ObjectStore
+    LocalClient -->|implements| BucketManager
+
+    AWSProvider -->|implements| CloudProvider
+    GCPProvider -->|implements| CloudProvider
+    AzureProvider -->|implements| CloudProvider
+
+    S3Client -->|uses| S3Config
+    S3Client -->|uses| S3BucketConfig
+    S3Client -->|uses| LifecycleRule
+    S3Client -->|uses| ObjectInfo
+    S3Client -->|uses| BucketInfo
+    S3Client -->|uses| ObjectRef
+    S3Client -->|uses| PutOption
+
+    LocalClient -->|uses| LocalConfig
+    LocalClient -->|uses| SidecarMeta
+    LocalClient -->|uses| ObjectInfo
+    LocalClient -->|uses| BucketInfo
+    LocalClient -->|uses| ObjectRef
+    LocalClient -->|uses| PutOption
+
+    AWSProvider -->|uses| ProviderConfig
+    GCPProvider -->|uses| ProviderConfig
+    AzureProvider -->|uses| ProviderConfig
+
+    S3Client -->|depends on| MinioSDK
+    S3Client -->|depends on| Logrus
+    LocalClient -->|depends on| Logrus
+    LocalClient -->|depends on| Stdlib

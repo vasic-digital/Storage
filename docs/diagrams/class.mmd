@@ -1,0 +1,234 @@
+classDiagram
+    class ObjectStore {
+        <<interface>>
+        +Connect(ctx context.Context) error
+        +Close() error
+        +PutObject(ctx context.Context, bucket string, key string, reader io.Reader, size int64, opts ...PutOption) error
+        +GetObject(ctx context.Context, bucket string, key string) (io.ReadCloser, error)
+        +DeleteObject(ctx context.Context, bucket string, key string) error
+        +ListObjects(ctx context.Context, bucket string, prefix string) ([]ObjectInfo, error)
+        +StatObject(ctx context.Context, bucket string, key string) (*ObjectInfo, error)
+        +CopyObject(ctx context.Context, src ObjectRef, dst ObjectRef) error
+        +HealthCheck(ctx context.Context) error
+    }
+
+    class BucketManager {
+        <<interface>>
+        +CreateBucket(ctx context.Context, config BucketConfig) error
+        +DeleteBucket(ctx context.Context, name string) error
+        +ListBuckets(ctx context.Context) ([]BucketInfo, error)
+        +BucketExists(ctx context.Context, name string) (bool, error)
+    }
+
+    class CloudProvider {
+        <<interface>>
+        +Name() string
+        +Credentials() map~string, string~
+        +HealthCheck(ctx context.Context) error
+    }
+
+    class ObjectRef {
+        +Bucket string
+        +Key string
+    }
+
+    class ObjectInfo {
+        +Key string
+        +Size int64
+        +LastModified time.Time
+        +ContentType string
+        +ETag string
+        +Metadata map~string, string~
+    }
+
+    class BucketInfo {
+        +Name string
+        +CreationDate time.Time
+    }
+
+    class BucketConfig {
+        +Name string
+        +Versioning bool
+        +RetentionDays int
+        +ObjectLocking bool
+    }
+
+    class Config {
+        +Endpoint string
+        +AccessKey string
+        +SecretKey string
+        +UseSSL bool
+        +Region string
+        +ConnectTimeout time.Duration
+        +RequestTimeout time.Duration
+        +MaxRetries int
+        +PartSize int64
+    }
+
+    class PutOption {
+        <<function type>>
+        func(*putOptions)
+    }
+
+    class S3Client {
+        -config *Config
+        -minioClient *minio.Client
+        -logger *logrus.Logger
+        -mu sync.RWMutex
+        -connected bool
+        +NewClient(config *Config, logger *logrus.Logger) (*Client, error)
+        +Connect(ctx context.Context) error
+        +Close() error
+        +IsConnected() bool
+        +HealthCheck(ctx context.Context) error
+        +PutObject(ctx, bucket, key, reader, size, opts) error
+        +GetObject(ctx, bucket, key) (io.ReadCloser, error)
+        +DeleteObject(ctx, bucket, key) error
+        +ListObjects(ctx, bucket, prefix) ([]ObjectInfo, error)
+        +StatObject(ctx, bucket, key) (*ObjectInfo, error)
+        +CopyObject(ctx, src, dst) error
+        +CreateBucket(ctx, config) error
+        +DeleteBucket(ctx, name) error
+        +ListBuckets(ctx) ([]BucketInfo, error)
+        +BucketExists(ctx, name) (bool, error)
+        +GetPresignedURL(ctx, bucket, key, expiry) (string, error)
+        +GetPresignedPutURL(ctx, bucket, key, expiry) (string, error)
+        +SetLifecycleRule(ctx, bucket, rule) error
+        +RemoveLifecycleRule(ctx, bucket, ruleID) error
+    }
+
+    class S3Config {
+        +Endpoint string
+        +AccessKey string
+        +SecretKey string
+        +UseSSL bool
+        +Region string
+        +ConnectTimeout time.Duration
+        +RequestTimeout time.Duration
+        +MaxRetries int
+        +PartSize int64
+        +ConcurrentUploads int
+        +HealthCheckInterval time.Duration
+        +DefaultConfig() *Config
+        +Validate() error
+    }
+
+    class S3BucketConfig {
+        +Name string
+        +RetentionDays int
+        +Versioning bool
+        +ObjectLocking bool
+        +Public bool
+        +DefaultBucketConfig(name string) *BucketConfig
+        +WithRetention(days int) *BucketConfig
+        +WithVersioning() *BucketConfig
+        +WithObjectLocking() *BucketConfig
+        +WithPublicAccess() *BucketConfig
+    }
+
+    class LifecycleRule {
+        +ID string
+        +Prefix string
+        +Enabled bool
+        +ExpirationDays int
+        +NoncurrentDays int
+        +DeleteMarkerExpiry bool
+        +DefaultLifecycleRule(id, days) *LifecycleRule
+        +WithPrefix(prefix string) *LifecycleRule
+        +WithNoncurrentExpiry(days int) *LifecycleRule
+    }
+
+    class LocalClient {
+        -rootDir string
+        -logger *logrus.Logger
+        -mu sync.RWMutex
+        -connected bool
+        +NewClient(config *Config, logger *logrus.Logger) (*Client, error)
+        +Connect(ctx context.Context) error
+        +Close() error
+        +IsConnected() bool
+        +HealthCheck(ctx context.Context) error
+        +PutObject(ctx, bucket, key, reader, size, opts) error
+        +GetObject(ctx, bucket, key) (io.ReadCloser, error)
+        +DeleteObject(ctx, bucket, key) error
+        +ListObjects(ctx, bucket, prefix) ([]ObjectInfo, error)
+        +StatObject(ctx, bucket, key) (*ObjectInfo, error)
+        +CopyObject(ctx, src, dst) error
+        +CreateBucket(ctx, config) error
+        +DeleteBucket(ctx, name) error
+        +ListBuckets(ctx) ([]BucketInfo, error)
+        +BucketExists(ctx, name) (bool, error)
+    }
+
+    class LocalConfig {
+        +RootDir string
+    }
+
+    class AWSProvider {
+        +AccessKeyID string
+        +SecretAccessKey string
+        +Region string
+        +SessionToken string
+        -config *ProviderConfig
+        +NewAWSProvider(accessKeyID, secretAccessKey, region, config) (*AWSProvider, error)
+        +Name() string
+        +Credentials() map~string, string~
+        +HealthCheck(ctx context.Context) error
+        +WithSessionToken(token string) *AWSProvider
+    }
+
+    class GCPProvider {
+        +ProjectID string
+        +ServiceAccount string
+        +Location string
+        -config *ProviderConfig
+        +NewGCPProvider(projectID, location, config) (*GCPProvider, error)
+        +Name() string
+        +Credentials() map~string, string~
+        +HealthCheck(ctx context.Context) error
+        +WithServiceAccount(sa string) *GCPProvider
+    }
+
+    class AzureProvider {
+        +SubscriptionID string
+        +TenantID string
+        +ClientID string
+        +ClientSecret string
+        -config *ProviderConfig
+        +NewAzureProvider(subscriptionID, tenantID, config) (*AzureProvider, error)
+        +Name() string
+        +Credentials() map~string, string~
+        +HealthCheck(ctx context.Context) error
+        +WithClientCredentials(clientID, clientSecret string) *AzureProvider
+    }
+
+    class ProviderConfig {
+        +Timeout time.Duration
+        +DefaultProviderConfig() *ProviderConfig
+    }
+
+    ObjectStore <|.. S3Client : implements
+    ObjectStore <|.. LocalClient : implements
+    BucketManager <|.. S3Client : implements
+    BucketManager <|.. LocalClient : implements
+    CloudProvider <|.. AWSProvider : implements
+    CloudProvider <|.. GCPProvider : implements
+    CloudProvider <|.. AzureProvider : implements
+
+    S3Client --> S3Config : uses
+    S3Client --> S3BucketConfig : uses
+    S3Client --> LifecycleRule : uses
+    S3Client --> ObjectInfo : returns
+    S3Client --> BucketInfo : returns
+    S3Client --> ObjectRef : accepts
+    S3Client --> PutOption : accepts
+
+    LocalClient --> LocalConfig : uses
+    LocalClient --> ObjectInfo : returns
+    LocalClient --> BucketInfo : returns
+    LocalClient --> ObjectRef : accepts
+    LocalClient --> PutOption : accepts
+
+    AWSProvider --> ProviderConfig : uses
+    GCPProvider --> ProviderConfig : uses
+    AzureProvider --> ProviderConfig : uses

@@ -1,0 +1,82 @@
+sequenceDiagram
+    participant App as Application
+    participant Client as ObjectStore Client
+    participant Mutex as sync.RWMutex
+    participant Opts as ResolvePutOptions
+    participant Backend as Backend<br/>(MinIO SDK / Filesystem)
+
+    Note over App,Backend: Connection Phase
+    App->>Client: NewClient(config, logger)
+    Client-->>App: *Client, nil
+
+    App->>Client: Connect(ctx)
+    Client->>Mutex: mu.Lock()
+    alt S3 Backend
+        Client->>Backend: minio.New(endpoint, options)
+        Backend-->>Client: *minio.Client
+        Client->>Backend: ListBuckets(ctx)
+        Backend-->>Client: []BucketInfo (connectivity check)
+    else Local Backend
+        Client->>Backend: os.MkdirAll(rootDir, 0755)
+        Backend-->>Client: nil
+    end
+    Client->>Client: connected = true
+    Client->>Mutex: mu.Unlock()
+    Client-->>App: nil
+
+    Note over App,Backend: Bucket Creation
+    App->>Client: CreateBucket(ctx, BucketConfig)
+    Client->>Mutex: mu.RLock()
+    Client->>Client: check connected
+    alt S3 Backend
+        Client->>Backend: BucketExists(ctx, name)
+        Backend-->>Client: false
+        Client->>Backend: MakeBucket(ctx, name, opts)
+        Backend-->>Client: nil
+        opt Versioning Enabled
+            Client->>Backend: SetBucketVersioning(ctx, name, config)
+        end
+        opt RetentionDays > 0
+            Client->>Backend: SetBucketLifecycle(ctx, name, config)
+        end
+    else Local Backend
+        Client->>Backend: os.MkdirAll(rootDir/name, 0755)
+        Backend-->>Client: nil
+    end
+    Client->>Mutex: mu.RUnlock()
+    Client-->>App: nil
+
+    Note over App,Backend: Upload Flow
+    App->>Client: PutObject(ctx, bucket, key, reader, size, opts...)
+    Client->>Mutex: mu.RLock()
+    Client->>Client: check connected
+    Client->>Opts: ResolvePutOptions(opts...)
+    Opts-->>Client: putOptions{ContentType, Metadata}
+
+    alt S3 Backend
+        Client->>Client: Build minio.PutObjectOptions
+        Client->>Backend: PutObject(ctx, bucket, key, reader, size, putOpts)
+        Backend-->>Client: UploadInfo, nil
+    else Local Backend
+        Client->>Backend: os.MkdirAll(parent dirs)
+        Client->>Backend: os.Create(filepath)
+        Client->>Backend: io.Copy(file, reader)
+        Backend-->>Client: bytes written
+        opt ContentType or Metadata provided
+            Client->>Backend: json.Marshal(sidecarMeta)
+            Client->>Backend: os.WriteFile(path.meta, data)
+        end
+    end
+
+    Client->>Mutex: mu.RUnlock()
+    Client-->>App: nil
+
+    Note over App,Backend: Cleanup
+    App->>Client: Close()
+    Client->>Mutex: mu.Lock()
+    Client->>Client: connected = false
+    alt S3 Backend
+        Client->>Client: minioClient = nil
+    end
+    Client->>Mutex: mu.Unlock()
+    Client-->>App: nil
