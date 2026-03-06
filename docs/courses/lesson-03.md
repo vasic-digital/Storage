@@ -84,6 +84,8 @@ fmt.Println(backend.Name()) // "s3"
 
 The resolver is thread-safe and can be reconfigured at runtime by adding new rules or backends.
 
-## Summary
+## Practice Exercise
 
-Use `CloudProvider` implementations to manage credentials across AWS, GCP, and Azure. Use the `Resolver` to decouple application code from specific storage backends, enabling easy migration between local, S3, and cloud storage.
+1. Create an `AWSProvider` and verify `Credentials()` returns the correct keys. Test validation by omitting the access key and verifying the constructor returns an error.
+2. Set up a `Resolver` with two backends (local for `thumbnails/`, mock S3 for `originals/`) and a local fallback. Write to both prefixes and verify each routes to the correct backend.
+3. Create all three cloud providers (AWS, GCP, Azure) and call `HealthCheck` on each. Since no actual cloud connection exists, verify the appropriate error messages are returned.

@@ -90,6 +90,8 @@ client.RemoveLifecycleRule(ctx, "my-bucket", "expire-logs")
 
 Rules are merged with existing rules by ID. If a rule with the same ID exists, it is replaced.
 
-## Summary
+## Practice Exercise
 
-The `s3` package provides a production-ready S3 client with presigned URLs, lifecycle management, and full compatibility with both MinIO and AWS S3.
+1. Create an S3 config and call `Validate()` with missing fields. Verify the appropriate error messages for each missing required field.
+2. Use the `Builder` pattern to create a `BucketConfig` with versioning, object locking, and a 90-day retention period. Verify all fields are set correctly.
+3. Create a `LifecycleRule` with a prefix filter and noncurrent expiry. Verify the rule structure matches what the MinIO SDK expects.

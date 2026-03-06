@@ -97,6 +97,8 @@ client.CopyObject(ctx,
 client.DeleteObject(ctx, "media", "video.mp4")
 ```
 
-## Summary
+## Practice Exercise
 
-The `object` package defines clean, separated interfaces for object and bucket operations. The `local` client maps these to the filesystem with sidecar metadata files, making it ideal for development and testing.
+1. Create a `local.Client` with a temporary directory. Create a bucket, upload a file with `WithContentType("text/plain")` and `WithMetadata`, then stat the object and verify the content type and metadata are preserved.
+2. List objects in a bucket with a prefix filter. Upload 5 files with different prefixes and verify the filter returns only matching objects.
+3. Test the connection guard: attempt `PutObject` before calling `Connect()`. Verify the error message indicates the client is not connected.
