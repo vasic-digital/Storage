@@ -1,3 +1,3 @@
 #!/bin/bash
 
-export UPSTREAMABLE_REPOSITORY="git@gitlab.com:vasic-digital/storage.git"
+export UPSTREAMABLE_REPOSITORY="git@gitlab.com:vasic-digital/Storage.git"
