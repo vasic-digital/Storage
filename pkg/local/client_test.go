@@ -1063,7 +1063,7 @@ func TestClient_ListBuckets_EntryInfoError(t *testing.T) {
 	brokenSymlink := filepath.Join(dir, "broken-link")
 	err = os.Symlink("/nonexistent/path/that/does/not/exist", brokenSymlink)
 	if err != nil {
-		t.Skip("Unable to create symlink, skipping test")
+		t.Skip("Unable to create symlink, skipping test")  // SKIP-OK: #legacy-untriaged
 	}
 
 	// List buckets should skip the broken symlink
