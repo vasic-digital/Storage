@@ -17,7 +17,7 @@ import (
 
 func TestEndToEnd_FullStorageWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -90,7 +90,7 @@ func TestEndToEnd_FullStorageWorkflow(t *testing.T) {
 
 func TestEndToEnd_MultipleTypes(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -136,7 +136,7 @@ func TestEndToEnd_MultipleTypes(t *testing.T) {
 
 func TestEndToEnd_ConnectionLifecycle(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -183,7 +183,7 @@ func TestEndToEnd_ConnectionLifecycle(t *testing.T) {
 
 func TestEndToEnd_AllProviders(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	ctx := context.Background()
@@ -216,7 +216,7 @@ func TestEndToEnd_AllProviders(t *testing.T) {
 
 func TestEndToEnd_PutOptions(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	// Verify functional options resolve correctly

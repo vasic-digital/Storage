@@ -18,7 +18,7 @@ import (
 
 func TestLocalClient_BucketLifecycle_Integration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -62,7 +62,7 @@ func TestLocalClient_BucketLifecycle_Integration(t *testing.T) {
 
 func TestLocalClient_ObjectCRUD_Integration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -120,7 +120,7 @@ func TestLocalClient_ObjectCRUD_Integration(t *testing.T) {
 
 func TestLocalClient_CopyObject_Integration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -161,7 +161,7 @@ func TestLocalClient_CopyObject_Integration(t *testing.T) {
 
 func TestLocalClient_HealthCheck_Integration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -189,7 +189,7 @@ func TestLocalClient_HealthCheck_Integration(t *testing.T) {
 
 func TestLocalClient_NestedObjects_Integration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -231,7 +231,7 @@ func TestLocalClient_NestedObjects_Integration(t *testing.T) {
 
 func TestCloudProviders_Integration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	ctx := context.Background()

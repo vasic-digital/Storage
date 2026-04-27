@@ -17,7 +17,7 @@ import (
 
 func TestSecurity_NilConfigReject(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	_, err := local.NewClient(nil, nil)
@@ -29,7 +29,7 @@ func TestSecurity_NilConfigReject(t *testing.T) {
 
 func TestSecurity_PathTraversalPrevention(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -73,7 +73,7 @@ func TestSecurity_PathTraversalPrevention(t *testing.T) {
 
 func TestSecurity_PathTraversalBucketName(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -101,7 +101,7 @@ func TestSecurity_PathTraversalBucketName(t *testing.T) {
 
 func TestSecurity_SpecialCharacterObjectKeys(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -145,7 +145,7 @@ func TestSecurity_SpecialCharacterObjectKeys(t *testing.T) {
 
 func TestSecurity_ProviderEmptyCredentials(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	// AWS: empty access key should be rejected
@@ -172,7 +172,7 @@ func TestSecurity_ProviderEmptyCredentials(t *testing.T) {
 
 func TestSecurity_ProviderCredentialExposure(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	aws, err := provider.NewAWSProvider(
@@ -198,7 +198,7 @@ func TestSecurity_ProviderCredentialExposure(t *testing.T) {
 
 func TestSecurity_LargeObjectHandling(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -226,7 +226,7 @@ func TestSecurity_LargeObjectHandling(t *testing.T) {
 
 func TestSecurity_OperationsWithoutConnection(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping security test in short mode")
+		t.Skip("skipping security test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()

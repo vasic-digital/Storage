@@ -19,7 +19,7 @@ import (
 
 func TestStress_ConcurrentObjectPut(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -66,7 +66,7 @@ func TestStress_ConcurrentObjectPut(t *testing.T) {
 
 func TestStress_ConcurrentGetStat(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -125,7 +125,7 @@ func TestStress_ConcurrentGetStat(t *testing.T) {
 
 func TestStress_ConcurrentBucketOperations(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -160,7 +160,7 @@ func TestStress_ConcurrentBucketOperations(t *testing.T) {
 
 func TestStress_ConcurrentCopyDelete(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	tmpDir := t.TempDir()
@@ -218,7 +218,7 @@ func TestStress_ConcurrentCopyDelete(t *testing.T) {
 
 func TestStress_ConcurrentProviderHealth(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	aws, err := provider.NewAWSProvider("key", "secret", "us-east-1", nil)
