@@ -402,6 +402,7 @@ func TestClient_OperationsWhenNotConnected(t *testing.T) {
 }
 
 func TestClient_Concurrency(t *testing.T) {
+	// bluff-scan: no-assert-ok (concurrency test — go test -race catches data races; absence of panic == correctness)
 	client, _ := newTestClient(t)
 
 	done := make(chan bool, 20)
