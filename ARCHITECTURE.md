@@ -8,6 +8,13 @@ Generic, reusable Go module for object storage operations. Provides a unified in
 
 ```
 pkg/
+  object/        Core interfaces: ObjectStore, BucketManager, types, functional options (PutOption)
+  s3/            S3-compatible storage client (MinIO, AWS S3) with presigned URLs, lifecycle rules, CloudFront signed URLs
+  local/         Local filesystem storage with sidecar .meta JSON metadata files
+  provider/      Cloud provider credential management: AWS, GCP, Azure abstractions
+  recording/     Recording storage manager (C30): fMP4/MKV containers, NVMe staging, background sync
+```
+pkg/
   object/     Core interfaces: ObjectStore, BucketManager, types, functional options (PutOption)
   s3/         S3-compatible storage client (MinIO/AWS S3) with presigned URLs and lifecycle rules
   local/      Local filesystem storage with sidecar .meta JSON metadata files
@@ -19,9 +26,11 @@ pkg/
 - **`object.ObjectStore`** -- Interface: Connect, Close, PutObject, GetObject, DeleteObject, ListObjects, StatObject, CopyObject, HealthCheck
 - **`object.BucketManager`** -- Interface: CreateBucket, DeleteBucket, ListBuckets, BucketExists
 - **`object.PutOption`** -- Functional options: WithContentType, WithMetadata for extensible upload configuration
-- **`s3.Client`** -- MinIO/AWS S3 implementation with presigned URL generation and bucket lifecycle rules
+- **`s3.Client`** -- MinIO/AWS S3 implementation with presigned URL generation, bucket lifecycle rules, CloudFront signed URL generation (C-002)
+- **`s3.CloudFrontConfig`** -- CloudFront distribution configuration: domain, key pair ID, RSA private key for signing, tenant-isolated URLs
 - **`local.Store`** -- Filesystem-backed storage with atomic writes and `.meta` JSON sidecar files for metadata
 - **`provider.CloudProvider`** -- Interface: Name, Credentials, HealthCheck for multi-cloud support
+- **`recording.Manager`** -- Recording storage manager (C30): session lifecycle (staging/sealed/syncing/synced), local NVMe staging buffer, fMP4/MKV container format selection, background sync to S3/CloudFront, 30-min circular buffer, disk-pressure handling, encryption-at-rest, per-tenant retention policies
 
 ## Data Flow
 

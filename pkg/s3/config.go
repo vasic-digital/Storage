@@ -25,6 +25,9 @@ type Config struct {
 
 	// Health check
 	HealthCheckInterval time.Duration `json:"health_check_interval" yaml:"health_check_interval"`
+
+	// CloudFront CDN integration (C-002: Amazon CloudFront + S3 for 4K assets)
+	CloudFront *CloudFrontConfig `json:"cloudfront,omitempty" yaml:"cloudfront,omitempty"`
 }
 
 // DefaultConfig returns a Config with sensible defaults for local MinIO.
