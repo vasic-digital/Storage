@@ -1,10 +1,14 @@
-package recording_security
+package security
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"sync"
 	"testing"
-	"time"
 
+	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,12 +28,12 @@ func NewMockSecureStore() *MockSecureStore {
 	}
 }
 
-func (m *MockSecureStore) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...object.PutOption) error {
+func (m *MockSecureStore) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	data, ok := reader.([]byte)
-	if !ok {
-		return fmt.Errorf("reader must be []byte")
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("read failed: %w", err)
 	}
 	key := bucketName + "/" + objectName
 	m.objects[key] = data
@@ -38,7 +42,7 @@ func (m *MockSecureStore) PutObject(ctx context.Context, bucketName, objectName 
 	return nil
 }
 
-func (m *MockSecureStore) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockSecureStore) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	key := bucketName + "/" + objectName
@@ -46,7 +50,7 @@ func (m *MockSecureStore) GetObject(ctx context.Context, bucketName, objectName 
 	if !exists {
 		return nil, fmt.Errorf("object not found")
 	}
-	return data, nil
+	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
 func (m *MockSecureStore) DeleteObject(ctx context.Context, bucketName, objectName string) error {
@@ -98,6 +102,10 @@ func (m *MockSecureStore) CopyObject(ctx context.Context, src, dst object.Object
 	dstKey := dst.Bucket + "/" + dst.Key
 	m.objects[dstKey] = data
 	m.encrypted[dstKey] = true
+	return nil
+}
+
+func (m *MockSecureStore) Connect(ctx context.Context) error {
 	return nil
 }
 
@@ -201,7 +209,7 @@ func TestRecordingSecurity_RetentionPolicy(t *testing.T) {
 	cfg := recording.DefaultRecordingConfig()
 	cfg.RetentionDays = 30
 
-	mgr, err := recording.NewManager(cfg, store, nil)
+	_, err := recording.NewManager(cfg, store, nil)
 	require.NoError(t, err)
 
 	// Verify retention policy is set

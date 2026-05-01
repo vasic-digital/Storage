@@ -1,9 +1,12 @@
-package recording_integration
+package integration
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"sync"
 	"testing"
-	"time"
 
 	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
@@ -15,7 +18,7 @@ import (
 // It simulates real S3 behavior without mocks (per R-12: only Unit may use mocks).
 // For true integration, this would connect to MinIO running in a container.
 type MockObjectStoreIntegration struct {
-	objects map[string][]byte
+	objects  map[string][]byte
 	metadata map[string]map[string]string
 	mu       sync.RWMutex
 }
@@ -27,14 +30,14 @@ func NewMockObjectStoreIntegration() *MockObjectStoreIntegration {
 	}
 }
 
-func (m *MockObjectStoreIntegration) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...object.PutOption) error {
+func (m *MockObjectStoreIntegration) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	key := bucketName + "/" + objectName
-	data, ok := reader.([]byte)
-	if !ok {
-		return fmt.Errorf("reader must be []byte for mock")
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("read failed: %w", err)
 	}
 	m.objects[key] = data
 
@@ -46,7 +49,7 @@ func (m *MockObjectStoreIntegration) PutObject(ctx context.Context, bucketName, 
 	return nil
 }
 
-func (m *MockObjectStoreIntegration) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockObjectStoreIntegration) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -55,7 +58,7 @@ func (m *MockObjectStoreIntegration) GetObject(ctx context.Context, bucketName, 
 	if !exists {
 		return nil, fmt.Errorf("object not found: %s", key)
 	}
-	return data, nil
+	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
 func (m *MockObjectStoreIntegration) DeleteObject(ctx context.Context, bucketName, objectName string) error {
@@ -112,6 +115,10 @@ func (m *MockObjectStoreIntegration) CopyObject(ctx context.Context, src, dst ob
 
 	dstKey := dst.Bucket + "/" + dst.Key
 	m.objects[dstKey] = data
+	return nil
+}
+
+func (m *MockObjectStoreIntegration) Connect(ctx context.Context) error {
 	return nil
 }
 

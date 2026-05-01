@@ -2,6 +2,7 @@ package recording_test
 
 import (
 	"context"
+	"io"
 	"testing"
 	"time"
 
@@ -13,24 +14,24 @@ import (
 
 // MockObjectStore is a mock implementation of object.ObjectStore for testing.
 type MockObjectStore struct {
-	PutObjectFunc  func(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...object.PutOption) error
-	GetObjectFunc  func(ctx context.Context, bucketName, objectName string) (interface{}, error)
+	PutObjectFunc    func(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error
+	GetObjectFunc    func(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error)
 	DeleteObjectFunc func(ctx context.Context, bucketName, objectName string) error
 	ListObjectsFunc  func(ctx context.Context, bucketName, prefix string) ([]object.ObjectInfo, error)
-	StatObjectFunc  func(ctx context.Context, bucketName, objectName string) (*object.ObjectInfo, error)
-	CopyObjectFunc func(ctx context.Context, src, dst object.ObjectRef) error
-	HealthCheckFunc func(ctx context.Context) error
-	CloseFunc       func() error
+	StatObjectFunc   func(ctx context.Context, bucketName, objectName string) (*object.ObjectInfo, error)
+	CopyObjectFunc   func(ctx context.Context, src, dst object.ObjectRef) error
+	HealthCheckFunc  func(ctx context.Context) error
+	CloseFunc        func() error
 }
 
-func (m *MockObjectStore) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...object.PutOption) error {
+func (m *MockObjectStore) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
 	if m.PutObjectFunc != nil {
 		return m.PutObjectFunc(ctx, bucketName, objectName, reader, size, opts...)
 	}
 	return nil
 }
 
-func (m *MockObjectStore) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockObjectStore) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	if m.GetObjectFunc != nil {
 		return m.GetObjectFunc(ctx, bucketName, objectName)
 	}
@@ -62,6 +63,10 @@ func (m *MockObjectStore) CopyObject(ctx context.Context, src, dst object.Object
 	if m.CopyObjectFunc != nil {
 		return m.CopyObjectFunc(ctx, src, dst)
 	}
+	return nil
+}
+
+func (m *MockObjectStore) Connect(ctx context.Context) error {
 	return nil
 }
 

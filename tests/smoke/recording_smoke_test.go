@@ -1,11 +1,14 @@
-package recording_smoke
+package smoke
 
 import (
 	"context"
+	"io"
 	"testing"
 
+	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRecordingSmoke_QuickStart(t *testing.T) {
@@ -52,31 +55,31 @@ func TestRecordingSmoke_ListTenants(t *testing.T) {
 
 type noopStore struct{}
 
-func (n *noopStore) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...interface{}) error {
+func (n *noopStore) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
 	return nil
 }
-func (n *noopStore) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (n *noopStore) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	return nil, nil
 }
 func (n *noopStore) DeleteObject(ctx context.Context, bucketName, objectName string) error {
 	return nil
 }
-func (n *noopStore) ListObjects(ctx context.Context, bucketName, prefix string) ([]interface{}, error) {
+func (n *noopStore) ListObjects(ctx context.Context, bucketName, prefix string) ([]object.ObjectInfo, error) {
 	return nil, nil
 }
-func (n *noopStore) StatObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (n *noopStore) StatObject(ctx context.Context, bucketName, objectName string) (*object.ObjectInfo, error) {
 	return nil, nil
 }
-func (n *noopStore) CopyObject(ctx context.Context, src, dst interface{}) error {
+func (n *noopStore) CopyObject(ctx context.Context, src, dst object.ObjectRef) error {
 	return nil
 }
+func (n *noopStore) Connect(ctx context.Context) error   { return nil }
 func (n *noopStore) HealthCheck(ctx context.Context) error { return nil }
 func (n *noopStore) Close() error                         { return nil }
 
 func TestRecordingSmoke_Negative(t *testing.T) {
 	store := &noopStore{}
 	mgr, _ := recording.NewManager(recording.DefaultRecordingConfig(), store, nil)
-	ctx := context.Background()
 
 	// Smoke: non-existent session MUST fail fast
 	t.Run("non-existent session fails fast", func(t *testing.T) {

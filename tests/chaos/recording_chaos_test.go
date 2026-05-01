@@ -1,44 +1,47 @@
-package recording_chaos
+package chaos
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"testing"
-	"time"
 
+	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
 	"github.com/stretchr/testify/assert"
 )
 
 // MockChaosStore injects failures to test resilience.
 type MockChaosStore struct {
-	failOnPut    bool
-	failOnSeal   bool
-	failOnSync   bool
-	callCount    int
+	failOnPut  bool
+	failOnSeal bool
+	failOnSync bool
+	callCount  int
 }
 
-func (m *MockChaosStore) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...interface{}) error {
+func (m *MockChaosStore) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
 	m.callCount++
 	if m.failOnPut {
 		return fmt.Errorf("chaos: put failed")
 	}
 	return nil
 }
-func (m *MockChaosStore) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockChaosStore) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	return nil, nil
 }
 func (m *MockChaosStore) DeleteObject(ctx context.Context, bucketName, objectName string) error {
 	return nil
 }
-func (m *MockChaosStore) ListObjects(ctx context.Context, bucketName, prefix string) ([]interface{}, error) {
+func (m *MockChaosStore) ListObjects(ctx context.Context, bucketName, prefix string) ([]object.ObjectInfo, error) {
 	return nil, nil
 }
-func (m *MockChaosStore) StatObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockChaosStore) StatObject(ctx context.Context, bucketName, objectName string) (*object.ObjectInfo, error) {
 	return nil, nil
 }
-func (m *MockChaosStore) CopyObject(ctx context.Context, src, dst interface{}) error {
+func (m *MockChaosStore) CopyObject(ctx context.Context, src, dst object.ObjectRef) error {
 	return nil
 }
+func (m *MockChaosStore) Connect(ctx context.Context) error   { return nil }
 func (m *MockChaosStore) HealthCheck(ctx context.Context) error { return nil }
 func (m *MockChaosStore) Close() error                         { return nil }
 
@@ -47,7 +50,7 @@ func TestRecordingChaos_PutFailure(t *testing.T) {
 	mgr, _ := recording.NewManager(recording.DefaultRecordingConfig(), store, nil)
 	ctx := context.Background()
 
-	err := mgr.StartRecording(ctx, "chaos-001", "tenant", "Game")
+	_, _ = mgr.StartRecording(ctx, "chaos-001", "tenant", "Game")
 	// StartRecording doesn't call PutObject directly, but simulates failure path
 	assert.NotNil(t, mgr)
 }
@@ -86,7 +89,7 @@ func TestRecordingChaos_DiskPressure(t *testing.T) {
 	ctx := context.Background()
 
 	// Should handle disk pressure gracefully (not block stream)
-	err := mgr.StartRecording(ctx, "chaos-003", "tenant", "Game")
+	_, err := mgr.StartRecording(ctx, "chaos-003", "tenant", "Game")
 	assert.NoError(t, err) // Should not fail even under pressure
 }
 
@@ -94,7 +97,6 @@ func TestRecordingChaos_DiskPressure(t *testing.T) {
 func TestRecordingChaos_Negative(t *testing.T) {
 	store := &MockChaosStore{}
 	mgr, _ := recording.NewManager(recording.DefaultRecordingConfig(), store, nil)
-	ctx := context.Background()
 
 	// Getting non-existent session MUST fail
 	_, err := mgr.GetRecordingStatus("non-existent")

@@ -1,10 +1,12 @@
-package recording_e2e
+package e2e
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"sync"
 	"testing"
-	"time"
 
 	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
@@ -99,6 +101,10 @@ func (m *MockS3ClientE2E) CopyObject(ctx context.Context, src, dst object.Object
 }
 
 func (m *MockS3ClientE2E) HealthCheck(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockS3ClientE2E) Connect(ctx context.Context) error {
 	return nil
 }
 

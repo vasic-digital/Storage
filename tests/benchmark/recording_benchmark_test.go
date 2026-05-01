@@ -1,10 +1,12 @@
-package recording_benchmark
+package benchmark
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"testing"
-	"time"
 
+	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
 )
 
@@ -54,23 +56,24 @@ func BenchmarkManager_ListRecordings(b *testing.B) {
 
 type MockObjectStoreNoop struct{}
 
-func (m *MockObjectStoreNoop) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...interface{}) error {
+func (m *MockObjectStoreNoop) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
 	return nil
 }
-func (m *MockObjectStoreNoop) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockObjectStoreNoop) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	return nil, nil
 }
 func (m *MockObjectStoreNoop) DeleteObject(ctx context.Context, bucketName, objectName string) error {
 	return nil
 }
-func (m *MockObjectStoreNoop) ListObjects(ctx context.Context, bucketName, prefix string) ([]interface{}, error) {
+func (m *MockObjectStoreNoop) ListObjects(ctx context.Context, bucketName, prefix string) ([]object.ObjectInfo, error) {
 	return nil, nil
 }
-func (m *MockObjectStoreNoop) StatObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (m *MockObjectStoreNoop) StatObject(ctx context.Context, bucketName, objectName string) (*object.ObjectInfo, error) {
 	return nil, nil
 }
-func (m *MockObjectStoreNoop) CopyObject(ctx context.Context, src, dst interface{}) error {
+func (m *MockObjectStoreNoop) CopyObject(ctx context.Context, src, dst object.ObjectRef) error {
 	return nil
 }
+func (m *MockObjectStoreNoop) Connect(ctx context.Context) error   { return nil }
 func (m *MockObjectStoreNoop) HealthCheck(ctx context.Context) error { return nil }
 func (m *MockObjectStoreNoop) Close() error                         { return nil }

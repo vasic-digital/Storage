@@ -3,12 +3,10 @@ package recording
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
 	"digital.vasic.storage/pkg/object"
-	"digital.vasic.storage/pkg/s3"
 	"github.com/sirupsen/logrus"
 )
 

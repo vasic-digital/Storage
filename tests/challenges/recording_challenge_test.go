@@ -1,10 +1,13 @@
-package recording_challenge
+package challenges
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"testing"
-	"time"
 
+	"digital.vasic.storage/pkg/object"
 	"digital.vasic.storage/pkg/recording"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,36 +91,37 @@ type challengeStore struct {
 	objects map[string][]byte
 }
 
-func (c *challengeStore) PutObject(ctx context.Context, bucketName, objectName string, reader interface{}, size int64, opts ...interface{}) error {
-	data, ok := reader.([]byte)
-	if !ok {
-		return fmt.Errorf("reader must be []byte")
+func (c *challengeStore) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, opts ...object.PutOption) error {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("read failed: %w", err)
 	}
 	key := bucketName + "/" + objectName
 	c.objects[key] = data
 	return nil
 }
-func (c *challengeStore) GetObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (c *challengeStore) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	key := bucketName + "/" + objectName
 	data, exists := c.objects[key]
 	if !exists {
 		return nil, fmt.Errorf("not found")
 	}
-	return data, nil
+	return io.NopCloser(bytes.NewReader(data)), nil
 }
 func (c *challengeStore) DeleteObject(ctx context.Context, bucketName, objectName string) error {
 	key := bucketName + "/" + objectName
 	delete(c.objects, key)
 	return nil
 }
-func (c *challengeStore) ListObjects(ctx context.Context, bucketName, prefix string) ([]interface{}, error) {
+func (c *challengeStore) ListObjects(ctx context.Context, bucketName, prefix string) ([]object.ObjectInfo, error) {
 	return nil, nil
 }
-func (c *challengeStore) StatObject(ctx context.Context, bucketName, objectName string) (interface{}, error) {
+func (c *challengeStore) StatObject(ctx context.Context, bucketName, objectName string) (*object.ObjectInfo, error) {
 	return nil, nil
 }
-func (c *challengeStore) CopyObject(ctx context.Context, src, dst interface{}) error {
+func (c *challengeStore) CopyObject(ctx context.Context, src, dst object.ObjectRef) error {
 	return nil
 }
+func (c *challengeStore) Connect(ctx context.Context) error   { return nil }
 func (c *challengeStore) HealthCheck(ctx context.Context) error { return nil }
 func (c *challengeStore) Close() error                         { return nil }

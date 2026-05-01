@@ -1,15 +1,13 @@
 package s3
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
-
-	"github.com/minio/minio-go/v7/pkg/signer"
 )
 
 // CloudFrontConfig holds CloudFront distribution configuration for signed URL generation.
