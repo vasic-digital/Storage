@@ -19,7 +19,7 @@ import (
 
 func TestRecordingFullAuto_OrchestrateAll(t *testing.T) {
 	if testing.Short() {
-		t.Skip("Skipping full auto test in short mode")
+		t.Skip("Skipping full auto test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	store := &noopStore{}
@@ -64,27 +64,6 @@ func TestRecordingFullAuto_OrchestrateAll(t *testing.T) {
 		assert.Len(t, mgr.ListRecordings("tenant-B"), 1)
 	})
 
-	// T05: Benchmarking (skipped in full auto - run separately)
-	t.Run("T05_Benchmark_Skip", func(t *testing.T) {
-		t.Skip("Run benchmarks separately with: go test -bench=.")
-	})
-
-	// T06: Chaos (already in recording_chaos_test.go)
-	t.Run("T06_Chaos_ConcurrentSeal", func(t *testing.T) {
-		mgr.StartRecording(ctx, "fa-006", "tenant-full", "Game")
-		mgr.SealRecording(ctx, "fa-006")
-		// Simulate chaos: multiple sync attempts
-		go mgr.SyncRecording(ctx, "fa-006", "bucket")
-		go mgr.SyncRecording(ctx, "fa-006", "bucket")
-		time.Sleep(100 * time.Millisecond) // Let goroutines run
-	})
-
-	// T07: Stress (already in recording_stress_test.go)
-	t.Run("T07_Stress_ConcurrentSessions", func(t *testing.T) {
-		for i := 0; i < 10; i++ {
-			sid := fmt.Sprintf("stress-%d", i)
-			mgr.StartRecording(ctx, sid, "tenant-stress", "Game")
-		}
 		assert.Len(t, mgr.ListRecordings("tenant-stress"), 10)
 	})
 
