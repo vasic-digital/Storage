@@ -84,12 +84,12 @@ func TestRecordingFullAuto_OrchestrateAll(t *testing.T) {
 
 	// T11: Challenges (run separately - requires Challenges submodule)
 	t.Run("T11_Challenges_Skip", func(t *testing.T) {
-		t.Skip("Run challenges separately: cd Challenges && ./run_all_challenges.sh")
+		t.Skip("Run challenges separately: cd Challenges && ./run_all_challenges.sh") // SKIP-OK: #challenge-runs-out-of-band
 	})
 
 	// T12: HelixQA (run separately - requires HelixQA submodule)
 	t.Run("T12_HelixQA_Skip", func(t *testing.T) {
-		t.Skip("Run HelixQA separately: cd HelixQA && ./run_qa.sh")
+		t.Skip("Run HelixQA separately: cd HelixQA && ./run_qa.sh") // SKIP-OK: #helixqa-runs-out-of-band
 	})
 }
 
