@@ -2,9 +2,6 @@ package s3
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"net/url"
 	"time"
@@ -143,22 +140,42 @@ func signCloudFrontURL(rawURL, keyPairID, privateKeyPEM string, expireTime int64
 	return u.String(), nil
 }
 
-// generateCloudFrontSignature creates the Signature parameter for CloudFront signed URLs.
-// This uses HMAC-SHA1 with the private key (simplified version).
+// generateCloudFrontSignature creates the Signature parameter for
+// CloudFront signed URLs.
+//
+// §11.4 / CONST-035 CRITICAL — Previously this function used
+// HMAC-SHA1 with the PEM-encoded private key bytes as the HMAC
+// secret. AWS CloudFront REQUIRES RSA-SHA1 (not HMAC-SHA1) — the
+// HMAC output would be rejected by CloudFront with HTTP 403 on
+// every signed-URL access. Any user enabling CloudFront signed URLs
+// got URLs that look valid but FAIL at the CDN — §11.4 PASS-bluff
+// at the user-facing-API layer.
+//
+// Fix: return ErrCloudFrontSigningNotWired sentinel so callers
+// see the gap loudly. Real implementation requires:
+//   block, _ := pem.Decode([]byte(privateKeyPEM))
+//   key, err := x509.ParsePKCS1PrivateKey(block.Bytes) // or PKCS8
+//   if err != nil { return "", err }
+//   h := sha1.New()
+//   h.Write([]byte(policy))
+//   sig, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA1, h.Sum(nil))
+//   // CloudFront wants base64-url-safe-modified encoding (+/= → -_~)
+//   return cloudfrontSafeEncode(sig), nil
+// (round-22+ deferral).
 func generateCloudFrontSignature(rawURL string, expireTime int64, privateKeyPEM string) (string, error) {
-	// CloudFront signed URLs use RSA SHA1 signature
-	// The string to sign is: "{\"Statement\":[{\"Resource\":\"URL\",\"Condition\":{\"DateLessThan\":{\"AWS:EpochTime\":EXPIRES}}]}"
-	// For simplicity and following minio patterns, we use HMAC
-
-	// Build the policy string (Canned Policy)
-	policy := fmt.Sprintf(`{"Statement":[{"Resource":"%s","Condition":{"DateLessThan":{"AWS:EpochTime":%d}}]}`, rawURL, expireTime)
-
-	h := hmac.New(sha1.New, []byte(privateKeyPEM))
-	h.Write([]byte(policy))
-	signature := hex.EncodeToString(h.Sum(nil))
-
-	return signature, nil
+	_ = rawURL
+	_ = expireTime
+	_ = privateKeyPEM
+	return "", ErrCloudFrontSigningNotWired
 }
+
+// ErrCloudFrontSigningNotWired is returned by generateCloudFrontSignature
+// until the real RSA-SHA1 + PEM-decode signing path is wired. The
+// previous HMAC-SHA1 implementation produced signatures that
+// CloudFront would reject with HTTP 403 — §11.4 PASS-bluff at the
+// user-facing signed-URL layer; honest sentinel-error surfaces the
+// gap before users encounter the 403.
+var ErrCloudFrontSigningNotWired = fmt.Errorf("s3.generateCloudFrontSignature: real RSA-SHA1 + PEM-decode signing is not wired (was: HMAC-SHA1 with PEM bytes as HMAC secret — produces signatures CloudFront rejects with HTTP 403 — §11.4 PASS-bluff and is now removed); wire crypto/rsa + crypto/x509 PKCS1 / PKCS8 PEM parse + rsa.SignPKCS1v15 + cloudfront-safe base64 encoding to restore")
 
 // GetCloudFrontSignedURLForTenant generates a tenant-isolated CloudFront signed URL.
 // It prepends the tenant namespace to the object key for multi-tenant isolation.

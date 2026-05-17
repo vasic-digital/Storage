@@ -234,27 +234,43 @@ func (m *Manager) SyncRecording(
 	remoteKey := fmt.Sprintf("%s/recordings/%s/recording.%s",
 		session.TenantID, sessionID, ext)
 
-	// Read local file and upload to S3
-	// (In production, this would use the local staging file)
+	// §11.4 / CONST-035 — Real S3 upload is NOT wired here. The
+	// previous implementation set session.Status = RecordingStatusSynced
+	// without performing any file read or s3Client.PutObject call —
+	// a CRITICAL §11.4 PASS-bluff: every test asserting "recording
+	// synced" passed while zero bytes were actually transferred to
+	// S3 (equivalent to BLUFF-001 in production code).
+	//
+	// Fix: mark the session Failed with explicit ErrS3UploadNotWired
+	// so callers see the gap loudly. Real fix requires:
+	//   file, err := os.Open(session.ContainerPath)
+	//   if err != nil { return err }
+	//   defer file.Close()
+	//   stat, _ := file.Stat()
+	//   _, err = m.s3Client.PutObject(ctx, bucketName, remoteKey,
+	//       file, stat.Size(), minio.PutObjectOptions{})
+	// (round-22+ deferral; tracked separately).
 	m.logger.WithFields(logrus.Fields{
-		"session_id":  sessionID,
+		"session_id": sessionID,
 		"remote_key": remoteKey,
 		"bucket":     bucketName,
-	}).Info("Starting background sync to remote backend")
+	}).Warn("[§11.4 / CONST-035] SyncRecording: s3Client.PutObject dispatch is not wired; marking session Failed with ErrS3UploadNotWired sentinel")
 
-	// Simulate upload (in production: read from session.ContainerPath + upload via s3Client.PutObject)
-	// This is a placeholder for the actual file read + upload logic
 	session.RemoteKey = remoteKey
 
 	m.mu.Lock()
-	session.Status = RecordingStatusSynced
+	session.Status = RecordingStatusFailed
 	m.mu.Unlock()
 
-	m.logger.WithField("session_id", sessionID).
-		Info("Recording synced to remote backend")
-
-	return nil
+	return ErrS3UploadNotWired
 }
+
+// ErrS3UploadNotWired is returned by SyncRecording until the real
+// s3Client.PutObject call is implemented. The previous code path
+// silently set Status=Synced without uploading anything — §11.4
+// PASS-bluff at the data-persistence layer; honest sentinel-error
+// surfaces the gap loudly.
+var ErrS3UploadNotWired = fmt.Errorf("recording.SyncRecording: real s3Client.PutObject dispatch is not wired (was: session.Status = RecordingStatusSynced without file read or upload — §11.4 PASS-bluff and is now removed); wire os.Open(session.ContainerPath) + s3Client.PutObject to restore real sync")
 
 // GetRecordingStatus returns the current status of a recording session.
 func (m *Manager) GetRecordingStatus(
