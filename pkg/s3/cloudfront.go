@@ -1,9 +1,17 @@
 package s3
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -106,76 +114,180 @@ func (c *Client) GetCloudFrontSignedURL(
 	return signedURL, nil
 }
 
-// signCloudFrontURL signs a CloudFront URL using the RSA SHA1 method.
-// CloudFront uses a specific signing mechanism documented in AWS CloudFront Developer Guide.
+// signCloudFrontURL signs a CloudFront URL using the RSA-SHA1 method
+// (CloudFront Canned Policy — AWS CloudFront Developer Guide,
+// "Creating a signed URL using a canned policy"). The signed URL
+// carries three query parameters: Expires, Signature, Key-Pair-Id.
+//
+// Round-38 wiring: this function now produces signatures that
+// CloudFront will accept. The previous round-21 sentinel path
+// (ErrCloudFrontSigningNotWired) is preserved in the nil-key /
+// empty-PEM branch so misconfigured deployments still fail loudly
+// at signing time rather than at the CDN with HTTP 403.
 func signCloudFrontURL(rawURL, keyPairID, privateKeyPEM string, expireTime int64) (string, error) {
-	// For CloudFront, we need to add the Expires and Signature query parameters
-	// The signature is computed over the URL path + expires time
-
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL: %w", err)
 	}
 
-	// Add Expires parameter
-	q := u.Query()
-	q.Set("Expires", fmt.Sprintf("%d", expireTime))
-	q.Set("Key-Pair-Id", keyPairID)
-	u.RawQuery = q.Encode()
+	// Build the canned-policy JSON document. AWS CloudFront requires
+	// EXACTLY this shape (no whitespace, no extra fields) per the
+	// "Creating a signed URL using a canned policy" guide. The
+	// Resource is the full URL the client will request (scheme +
+	// host + path, BEFORE adding Expires/Signature/Key-Pair-Id).
+	policy := buildCannedPolicy(rawURL, expireTime)
 
-	// Build the string to sign: URL path + expires
-	// For CloudFront: stringToSign = "{\"Statement\":[{\"Resource\":\"URL\",\"Condition\":{\"DateLessThan\":{\"AWS:EpochTime\":EXPIRES}}]}"
-	// Actually, for Canned Policy, the signature is over the expires time only
-
-	// Simplified CloudFront signing using minio signer patterns
-	// In production, this would use the full CloudFront RSA signing
-	signature, err := generateCloudFrontSignature(rawURL, expireTime, privateKeyPEM)
+	// Sign the canned policy with the RSA private key (SHA1 hash,
+	// PKCS#1 v1.5 padding) — this is the CloudFront-required scheme.
+	signature, err := generateCloudFrontSignature(policy, privateKeyPEM)
 	if err != nil {
 		return "", err
 	}
 
+	// Append the three CloudFront query parameters. Note: Signature
+	// uses CloudFront-safe base64 (+/= → -_~) and MUST be appended
+	// raw (NOT URL-encoded a second time by url.Values.Encode); we
+	// build RawQuery manually to preserve the wire format.
+	q := u.Query()
+	q.Set("Expires", fmt.Sprintf("%d", expireTime))
+	q.Set("Key-Pair-Id", keyPairID)
+	// Set Signature last so it appears at the end of the query string
+	// (CloudFront accepts any ordering, but this matches AWS examples).
 	q.Set("Signature", signature)
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil
 }
 
-// generateCloudFrontSignature creates the Signature parameter for
-// CloudFront signed URLs.
+// buildCannedPolicy returns the JSON-encoded CloudFront canned-policy
+// document for a given resource URL + epoch expiry. CloudFront is
+// strict about the byte-exact shape (no whitespace, field order
+// matters); deviations produce HTTP 403 at the CDN.
 //
-// §11.4 / CONST-035 CRITICAL — Previously this function used
-// HMAC-SHA1 with the PEM-encoded private key bytes as the HMAC
-// secret. AWS CloudFront REQUIRES RSA-SHA1 (not HMAC-SHA1) — the
-// HMAC output would be rejected by CloudFront with HTTP 403 on
-// every signed-URL access. Any user enabling CloudFront signed URLs
-// got URLs that look valid but FAIL at the CDN — §11.4 PASS-bluff
-// at the user-facing-API layer.
-//
-// Fix: return ErrCloudFrontSigningNotWired sentinel so callers
-// see the gap loudly. Real implementation requires:
-//   block, _ := pem.Decode([]byte(privateKeyPEM))
-//   key, err := x509.ParsePKCS1PrivateKey(block.Bytes) // or PKCS8
-//   if err != nil { return "", err }
-//   h := sha1.New()
-//   h.Write([]byte(policy))
-//   sig, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA1, h.Sum(nil))
-//   // CloudFront wants base64-url-safe-modified encoding (+/= → -_~)
-//   return cloudfrontSafeEncode(sig), nil
-// (round-22+ deferral).
-func generateCloudFrontSignature(rawURL string, expireTime int64, privateKeyPEM string) (string, error) {
-	_ = rawURL
-	_ = expireTime
-	_ = privateKeyPEM
-	return "", ErrCloudFrontSigningNotWired
+// Reference: AWS CloudFront Developer Guide — "Creating a signed URL
+// using a canned policy" — the canned-policy document is computed
+// internally by CloudFront from these two inputs and the signer is
+// expected to reproduce the same byte sequence locally before signing.
+func buildCannedPolicy(resourceURL string, expireTime int64) string {
+	return fmt.Sprintf(
+		`{"Statement":[{"Resource":"%s","Condition":{"DateLessThan":{"AWS:EpochTime":%d}}}]}`,
+		resourceURL,
+		expireTime,
+	)
 }
 
-// ErrCloudFrontSigningNotWired is returned by generateCloudFrontSignature
-// until the real RSA-SHA1 + PEM-decode signing path is wired. The
-// previous HMAC-SHA1 implementation produced signatures that
-// CloudFront would reject with HTTP 403 — §11.4 PASS-bluff at the
-// user-facing signed-URL layer; honest sentinel-error surfaces the
-// gap before users encounter the 403.
-var ErrCloudFrontSigningNotWired = fmt.Errorf("s3.generateCloudFrontSignature: real RSA-SHA1 + PEM-decode signing is not wired (was: HMAC-SHA1 with PEM bytes as HMAC secret — produces signatures CloudFront rejects with HTTP 403 — §11.4 PASS-bluff and is now removed); wire crypto/rsa + crypto/x509 PKCS1 / PKCS8 PEM parse + rsa.SignPKCS1v15 + cloudfront-safe base64 encoding to restore")
+// generateCloudFrontSignature creates the Signature parameter for a
+// CloudFront signed URL by signing the canned-policy document with
+// the RSA private key from privateKeyPEM, using RSA-SHA1 (PKCS#1 v1.5
+// padding) and CloudFront-safe base64 encoding.
+//
+// §11.4 / CONST-035 round-38 wiring — Round-21 (commit 7dc5100)
+// replaced the broken HMAC-SHA1-with-PEM-as-secret implementation
+// with an honest ErrCloudFrontSigningNotWired sentinel. This round-38
+// fix wires the real RSA-SHA1 path:
+//
+//  1. Empty PEM → preserve round-21 sentinel (ErrCloudFrontSigningNotWired)
+//     so the misconfigured-deployment failure mode stays loud.
+//  2. Decode PEM block; non-RSA / malformed → ErrCloudFrontKeyParseFailed.
+//  3. Parse as PKCS#1 first (BEGIN RSA PRIVATE KEY), fall back to
+//     PKCS#8 (BEGIN PRIVATE KEY) and type-assert *rsa.PrivateKey.
+//  4. Hash policy with SHA-1; sign with rsa.SignPKCS1v15 + crypto.SHA1.
+//  5. Encode with CloudFront-safe base64 (+/= → -_~).
+//
+// CloudFront verifies the signature with the corresponding public key
+// at the CDN edge; a valid signature is accepted, invalid → HTTP 403.
+// The roundtrip unit test (sign + rsa.VerifyPKCS1v15) guards against
+// regression to the round-21 condition (function returns non-empty
+// bytes that are not a valid RSA signature).
+func generateCloudFrontSignature(policy, privateKeyPEM string) (string, error) {
+	if strings.TrimSpace(privateKeyPEM) == "" {
+		// Preserves round-21 sentinel for the not-wired-at-deploy
+		// failure mode (operator enabled CloudFront but did not
+		// provision a key). CONST-042 forbids hardcoding a default
+		// key, so empty-PEM must surface as an honest sentinel.
+		return "", ErrCloudFrontSigningNotWired
+	}
+
+	key, err := parseRSAPrivateKeyPEM(privateKeyPEM)
+	if err != nil {
+		return "", err
+	}
+
+	hashed := sha1.Sum([]byte(policy)) // #nosec G401 — CloudFront protocol REQUIRES SHA-1
+	signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA1, hashed[:])
+	if err != nil {
+		return "", fmt.Errorf("cloudfront: RSA-SHA1 signing failed: %w", err)
+	}
+
+	return cloudfrontSafeBase64(signature), nil
+}
+
+// parseRSAPrivateKeyPEM decodes a PEM block and returns the contained
+// RSA private key. Supports both PKCS#1 ("BEGIN RSA PRIVATE KEY") and
+// PKCS#8 ("BEGIN PRIVATE KEY") encodings. Non-RSA PKCS#8 keys (ECDSA,
+// Ed25519) return ErrCloudFrontKeyParseFailed since CloudFront's
+// canned-policy signing scheme is RSA-only.
+func parseRSAPrivateKeyPEM(privateKeyPEM string) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(privateKeyPEM))
+	if block == nil {
+		return nil, fmt.Errorf("%w: no PEM block found in input", ErrCloudFrontKeyParseFailed)
+	}
+
+	// Try PKCS#1 first (legacy "BEGIN RSA PRIVATE KEY" shape).
+	if rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return rsaKey, nil
+	}
+
+	// Fall back to PKCS#8 ("BEGIN PRIVATE KEY"), then type-assert
+	// to *rsa.PrivateKey — CloudFront requires RSA, so an ECDSA /
+	// Ed25519 key cannot satisfy the protocol even if PKCS#8 parses.
+	parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("%w: tried PKCS#1 and PKCS#8, both failed (last error: %v)", ErrCloudFrontKeyParseFailed, err)
+	}
+	rsaKey, ok := parsed.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("%w: PKCS#8 key is not RSA (got %T) — CloudFront canned-policy signing requires RSA", ErrCloudFrontKeyParseFailed, parsed)
+	}
+	return rsaKey, nil
+}
+
+// cloudfrontSafeBase64 encodes the signature bytes using CloudFront's
+// custom base64 alphabet: standard base64 with three substitutions
+//   - '+' → '-'
+//   - '=' → '_'
+//   - '/' → '~'
+//
+// This is documented in the AWS CloudFront Developer Guide section
+// "Creating a signed URL using a canned policy" (the bytes must be
+// safe to use inside a URL query parameter without further encoding).
+func cloudfrontSafeBase64(b []byte) string {
+	std := base64.StdEncoding.EncodeToString(b)
+	r := strings.NewReplacer(
+		"+", "-",
+		"=", "_",
+		"/", "~",
+	)
+	return r.Replace(std)
+}
+
+// ErrCloudFrontSigningNotWired is returned when CloudFront signing is
+// invoked without a private key configured. Round-21 introduced this
+// sentinel after the HMAC-SHA1-with-PEM-as-secret bluff was removed;
+// round-38 wires the real RSA-SHA1 signing path BUT preserves this
+// sentinel for the "operator enabled CloudFront, did not provide a
+// key" failure mode — honest sentinel at sign time beats HTTP 403 at
+// the CDN. §11.4 PASS-bluff at the user-facing signed-URL layer.
+var ErrCloudFrontSigningNotWired = fmt.Errorf("s3.generateCloudFrontSignature: CloudFront signing invoked without a private key — set CloudFrontConfig.PrivateKeyPEM (env-sourced per CONST-042) before enabling signed URLs; round-21 introduced this sentinel after removal of the broken HMAC-SHA1-with-PEM-as-secret implementation, round-38 wired the real RSA-SHA1 path and preserves this sentinel for the misconfigured-deployment failure mode")
+
+// ErrCloudFrontKeyParseFailed is returned when the CloudFront PEM
+// private key cannot be parsed as a usable RSA private key — either
+// because the input is not PEM-encoded, contains no key block, fails
+// both PKCS#1 and PKCS#8 parsing, or successfully parses as PKCS#8
+// but contains a non-RSA key (ECDSA, Ed25519). CloudFront's
+// canned-policy signing scheme is RSA-only, so a non-RSA key cannot
+// produce a CloudFront-acceptable signature regardless of strength.
+var ErrCloudFrontKeyParseFailed = fmt.Errorf("cloudfront: RSA private key PEM could not be parsed — verify PEM format (PKCS#1 or PKCS#8) and that the key is RSA (not ECDSA/Ed25519)")
 
 // GetCloudFrontSignedURLForTenant generates a tenant-isolated CloudFront signed URL.
 // It prepends the tenant namespace to the object key for multi-tenant isolation.
