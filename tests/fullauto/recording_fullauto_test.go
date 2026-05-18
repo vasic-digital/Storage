@@ -64,6 +64,15 @@ func TestRecordingFullAuto_OrchestrateAll(t *testing.T) {
 		assert.Len(t, mgr.ListRecordings("tenant-B"), 1)
 	})
 
+	// T07: Stress (restored from prior orphan-code fragment — round-37
+	// vet-error fix in the round-21 cleanup commit 077b1c3 left an
+	// unbraced assert.Len line that broke `go vet ./...`; reinstating
+	// the parent t.Run with the original-shape stress workload).
+	t.Run("T07_Stress_BulkStart", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			_, err := mgr.StartRecording(ctx, fmt.Sprintf("fa-stress-%d", i), "tenant-stress", "Game")
+			assert.NoError(t, err)
+		}
 		assert.Len(t, mgr.ListRecordings("tenant-stress"), 10)
 	})
 
