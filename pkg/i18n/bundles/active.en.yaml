@@ -1,0 +1,10 @@
+# Storage submodule — en bundle (CONST-046, round-118)
+# Keys prefixed with storage_ per cascade convention.
+# Loaded by consuming projects via their own translator implementation;
+# Storage's NoopTranslator returns the key verbatim and never reads this
+# file, keeping the submodule project-not-aware per CONST-051(B).
+storage_provider_aws_access_key_required: "access_key_id is required"
+storage_provider_aws_secret_required: "secret_access_key is required"
+storage_provider_aws_region_required: "region is required"
+storage_provider_aws_credentials_not_configured: "AWS credentials not configured"
+storage_resolver_no_backend_matched: "no backend matched path %q and no fallback configured"

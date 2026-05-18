@@ -4,7 +4,29 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"digital.vasic.storage/pkg/i18n"
 )
+
+// translator is the package-level message-resolution seam (CONST-046,
+// round-118). Defaults to NoopTranslator so production behaviour is
+// unchanged for any caller that has not wired a project-side
+// translator; consumers swap it via SetTranslator at startup.
+//
+// Per CONST-051(B) the seam is project-not-aware: this package never
+// imports a HelixCode-specific catalogue; the consuming project is
+// responsible for providing the real Translator implementation.
+var translator i18n.Translator = i18n.NoopTranslator{}
+
+// SetTranslator wires a project-side Translator. Callers MUST invoke it
+// at startup before issuing user-facing error returns; calling it
+// concurrently with provider construction is not supported.
+func SetTranslator(t i18n.Translator) {
+	if t == nil {
+		t = i18n.NoopTranslator{}
+	}
+	translator = t
+}
 
 // CloudProvider defines the interface for cloud provider credential and
 // health management.
@@ -48,13 +70,13 @@ func NewAWSProvider(
 	config *ProviderConfig,
 ) (*AWSProvider, error) {
 	if accessKeyID == "" {
-		return nil, fmt.Errorf("access_key_id is required")
+		return nil, fmt.Errorf("%s", translator.T("storage_provider_aws_access_key_required", nil))
 	}
 	if secretAccessKey == "" {
-		return nil, fmt.Errorf("secret_access_key is required")
+		return nil, fmt.Errorf("%s", translator.T("storage_provider_aws_secret_required", nil))
 	}
 	if region == "" {
-		return nil, fmt.Errorf("region is required")
+		return nil, fmt.Errorf("%s", translator.T("storage_provider_aws_region_required", nil))
 	}
 	if config == nil {
 		config = DefaultProviderConfig()
@@ -89,7 +111,7 @@ func (p *AWSProvider) Credentials() map[string]string {
 // HealthCheck verifies that AWS credentials are configured.
 func (p *AWSProvider) HealthCheck(_ context.Context) error {
 	if p.AccessKeyID == "" || p.SecretAccessKey == "" {
-		return fmt.Errorf("AWS credentials not configured")
+		return fmt.Errorf("%s", translator.T("storage_provider_aws_credentials_not_configured", nil))
 	}
 	return nil
 }

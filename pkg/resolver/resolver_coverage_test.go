@@ -137,8 +137,9 @@ func TestResolve_NoRuleMatch_NoFallback(t *testing.T) {
 
 	_, err := r.Resolve("/videos/clip.mp4")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no backend matched path")
-	assert.Contains(t, err.Error(), "no fallback configured")
+	// round-118 / CONST-046: NoopTranslator returns the key verbatim;
+	// English text in pkg/i18n/bundles/active.en.yaml.
+	assert.Contains(t, err.Error(), "storage_resolver_no_backend_matched")
 }
 
 // --- SetFallback: overwrite fallback ---

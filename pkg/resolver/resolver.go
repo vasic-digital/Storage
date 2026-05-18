@@ -13,7 +13,22 @@ import (
 	"io"
 	"strings"
 	"sync"
+
+	"digital.vasic.storage/pkg/i18n"
 )
+
+// translator is the package-level message-resolution seam (CONST-046,
+// round-118). Defaults to NoopTranslator; consumers swap it via
+// SetTranslator. Per CONST-051(B) the seam stays project-not-aware.
+var translator i18n.Translator = i18n.NoopTranslator{}
+
+// SetTranslator wires a project-side Translator.
+func SetTranslator(t i18n.Translator) {
+	if t == nil {
+		t = i18n.NoopTranslator{}
+	}
+	translator = t
+}
 
 // Backend represents a storage backend that can read and write assets.
 type Backend interface {
@@ -97,7 +112,7 @@ func (r *Resolver) Resolve(path string) (Backend, error) {
 		return b, nil
 	}
 
-	return nil, fmt.Errorf("no backend matched path %q and no fallback configured", path)
+	return nil, fmt.Errorf(translator.T("storage_resolver_no_backend_matched", nil), path)
 }
 
 // Read resolves and reads an asset.

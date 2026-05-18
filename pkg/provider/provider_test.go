@@ -50,7 +50,12 @@ func TestNewAWSProvider(t *testing.T) {
 			secretKey:   "secret",
 			region:      "us-east-1",
 			expectError: true,
-			errorMsg:    "access_key_id is required",
+			// round-118 / CONST-046: production default returns the
+			// translator key verbatim via NoopTranslator. The English
+			// text "access_key_id is required" lives in
+			// pkg/i18n/bundles/active.en.yaml and is materialised by
+			// the consuming project's wired translator.
+			errorMsg: "storage_provider_aws_access_key_required",
 		},
 		{
 			name:        "empty secret key",
@@ -58,7 +63,7 @@ func TestNewAWSProvider(t *testing.T) {
 			secretKey:   "",
 			region:      "us-east-1",
 			expectError: true,
-			errorMsg:    "secret_access_key is required",
+			errorMsg:    "storage_provider_aws_secret_required",
 		},
 		{
 			name:        "empty region",
@@ -66,7 +71,7 @@ func TestNewAWSProvider(t *testing.T) {
 			secretKey:   "secret",
 			region:      "",
 			expectError: true,
-			errorMsg:    "region is required",
+			errorMsg:    "storage_provider_aws_region_required",
 		},
 	}
 
@@ -439,7 +444,7 @@ func TestAWSProvider_HealthCheck_EmptyAccessKey(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "AWS credentials not configured")
+	assert.Contains(t, err.Error(), "storage_provider_aws_credentials_not_configured") // round-118 / CONST-046
 }
 
 func TestAWSProvider_HealthCheck_EmptySecretKey(t *testing.T) {
@@ -452,7 +457,7 @@ func TestAWSProvider_HealthCheck_EmptySecretKey(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "AWS credentials not configured")
+	assert.Contains(t, err.Error(), "storage_provider_aws_credentials_not_configured") // round-118 / CONST-046
 }
 
 func TestAWSProvider_HealthCheck_BothEmpty(t *testing.T) {
@@ -466,7 +471,7 @@ func TestAWSProvider_HealthCheck_BothEmpty(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "AWS credentials not configured")
+	assert.Contains(t, err.Error(), "storage_provider_aws_credentials_not_configured") // round-118 / CONST-046
 }
 
 func TestGCPProvider_HealthCheck_EmptyProjectID(t *testing.T) {
