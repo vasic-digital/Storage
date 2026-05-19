@@ -204,7 +204,7 @@ func TestNewGCPProvider(t *testing.T) {
 			projectID:   "",
 			location:    "us-central1",
 			expectError: true,
-			errorMsg:    "project_id is required",
+			errorMsg:    "storage_provider_gcp_project_id_required", // round-216 / CONST-046
 		},
 	}
 
@@ -303,14 +303,14 @@ func TestNewAzureProvider(t *testing.T) {
 			subscriptionID: "",
 			tenantID:       "tenant",
 			expectError:    true,
-			errorMsg:       "subscription_id is required",
+			errorMsg:       "storage_provider_azure_subscription_id_required", // round-216 / CONST-046
 		},
 		{
 			name:           "empty tenant",
 			subscriptionID: "sub",
 			tenantID:       "",
 			expectError:    true,
-			errorMsg:       "tenant_id is required",
+			errorMsg:       "storage_provider_azure_tenant_id_required", // round-216 / CONST-046
 		},
 	}
 
@@ -484,7 +484,7 @@ func TestGCPProvider_HealthCheck_EmptyProjectID(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "GCP project ID not configured")
+	assert.Contains(t, err.Error(), "storage_provider_gcp_project_id_not_configured") // round-216 / CONST-046
 }
 
 func TestAzureProvider_HealthCheck_EmptySubscriptionID(t *testing.T) {
@@ -497,7 +497,7 @@ func TestAzureProvider_HealthCheck_EmptySubscriptionID(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Azure credentials not configured")
+	assert.Contains(t, err.Error(), "storage_provider_azure_credentials_not_configured") // round-216 / CONST-046
 }
 
 func TestAzureProvider_HealthCheck_EmptyTenantID(t *testing.T) {
@@ -510,7 +510,7 @@ func TestAzureProvider_HealthCheck_EmptyTenantID(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Azure credentials not configured")
+	assert.Contains(t, err.Error(), "storage_provider_azure_credentials_not_configured") // round-216 / CONST-046
 }
 
 func TestAzureProvider_HealthCheck_BothEmpty(t *testing.T) {
@@ -524,5 +524,5 @@ func TestAzureProvider_HealthCheck_BothEmpty(t *testing.T) {
 
 	err = p.HealthCheck(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Azure credentials not configured")
+	assert.Contains(t, err.Error(), "storage_provider_azure_credentials_not_configured") // round-216 / CONST-046
 }

@@ -124,3 +124,141 @@ func TestSetTranslator_NilFallsBackToNoop(t *testing.T) {
 		t.Fatalf("nil-guard fallback failed; err=%q", err.Error())
 	}
 }
+
+// ---------------------------------------------------------------------
+// Round-216 (CONST-046 Phase 4 round 95) — 5 new provider-side sentinels
+// covering the GCP + Azure validators / health checks migrated this
+// round. Pattern mirrors the round-118 AWS sentinels above: real call
+// site, captured-key assertion, NoopTranslator legacy-text check, no
+// mock beyond the seam-recording fakeTranslator (CONST-050(A): mocks
+// allowed only in unit tests).
+// ---------------------------------------------------------------------
+
+func TestNewGCPProvider_MissingProjectID_UsesI18nSeam(t *testing.T) {
+	ft := &fakeTranslator{prefix: "X:"}
+	provider.SetTranslator(ft)
+	defer provider.SetTranslator(i18n.NoopTranslator{})
+
+	_, err := provider.NewGCPProvider("", "us-central1", nil)
+	if err == nil {
+		t.Fatalf("expected error from missing project_id; got nil")
+	}
+	if ft.lastKey != "storage_provider_gcp_project_id_required" {
+		t.Fatalf("seam not hit: lastKey=%q", ft.lastKey)
+	}
+	if !strings.Contains(err.Error(), "storage_provider_gcp_project_id_required") {
+		t.Fatalf("error %q does not carry seam payload", err.Error())
+	}
+}
+
+func TestGCPProvider_HealthCheck_NoProjectID_UsesI18nSeam(t *testing.T) {
+	ft := &fakeTranslator{}
+	provider.SetTranslator(ft)
+	defer provider.SetTranslator(i18n.NoopTranslator{})
+
+	p := &provider.GCPProvider{}
+	err := p.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatalf("expected error from empty GCPProvider HealthCheck; got nil")
+	}
+	if ft.lastKey != "storage_provider_gcp_project_id_not_configured" {
+		t.Fatalf("seam not hit: lastKey=%q", ft.lastKey)
+	}
+}
+
+func TestNewAzureProvider_MissingSubscription_UsesI18nSeam(t *testing.T) {
+	ft := &fakeTranslator{}
+	provider.SetTranslator(ft)
+	defer provider.SetTranslator(i18n.NoopTranslator{})
+
+	_, err := provider.NewAzureProvider("", "tenant", nil)
+	if err == nil {
+		t.Fatalf("expected error; got nil")
+	}
+	if ft.lastKey != "storage_provider_azure_subscription_id_required" {
+		t.Fatalf("seam not hit: lastKey=%q", ft.lastKey)
+	}
+}
+
+func TestNewAzureProvider_MissingTenant_UsesI18nSeam(t *testing.T) {
+	ft := &fakeTranslator{}
+	provider.SetTranslator(ft)
+	defer provider.SetTranslator(i18n.NoopTranslator{})
+
+	_, err := provider.NewAzureProvider("sub", "", nil)
+	if err == nil {
+		t.Fatalf("expected error; got nil")
+	}
+	if ft.lastKey != "storage_provider_azure_tenant_id_required" {
+		t.Fatalf("seam not hit: lastKey=%q", ft.lastKey)
+	}
+}
+
+func TestAzureProvider_HealthCheck_NoCreds_UsesI18nSeam(t *testing.T) {
+	ft := &fakeTranslator{}
+	provider.SetTranslator(ft)
+	defer provider.SetTranslator(i18n.NoopTranslator{})
+
+	p := &provider.AzureProvider{}
+	err := p.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatalf("expected error from empty AzureProvider HealthCheck; got nil")
+	}
+	if ft.lastKey != "storage_provider_azure_credentials_not_configured" {
+		t.Fatalf("seam not hit: lastKey=%q", ft.lastKey)
+	}
+}
+
+// TestRound216_NoopDefault_PreservesLegacyText asserts every round-216
+// production caller without a wired translator still sees the
+// key-shaped error payload — same posture as the round-118 AWS
+// sentinel. Paired-mutation: flipping `return key` to `return ""` in
+// NoopTranslator.T must cause every assertion below to FAIL loud.
+func TestRound216_NoopDefault_PreservesLegacyText(t *testing.T) {
+	provider.SetTranslator(i18n.NoopTranslator{})
+
+	tests := []struct {
+		name        string
+		call        func() error
+		wantKey     string
+	}{
+		{
+			name:    "gcp_missing_project_id",
+			call:    func() error { _, e := provider.NewGCPProvider("", "us-central1", nil); return e },
+			wantKey: "storage_provider_gcp_project_id_required",
+		},
+		{
+			name:    "gcp_healthcheck_no_project",
+			call:    func() error { return (&provider.GCPProvider{}).HealthCheck(context.Background()) },
+			wantKey: "storage_provider_gcp_project_id_not_configured",
+		},
+		{
+			name:    "azure_missing_subscription",
+			call:    func() error { _, e := provider.NewAzureProvider("", "t", nil); return e },
+			wantKey: "storage_provider_azure_subscription_id_required",
+		},
+		{
+			name:    "azure_missing_tenant",
+			call:    func() error { _, e := provider.NewAzureProvider("s", "", nil); return e },
+			wantKey: "storage_provider_azure_tenant_id_required",
+		},
+		{
+			name:    "azure_healthcheck_no_creds",
+			call:    func() error { return (&provider.AzureProvider{}).HealthCheck(context.Background()) },
+			wantKey: "storage_provider_azure_credentials_not_configured",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.call()
+			if err == nil {
+				t.Fatalf("expected error; got nil")
+			}
+			if err.Error() != tc.wantKey {
+				t.Fatalf("Noop default error = %q; want exact key %q",
+					err.Error(), tc.wantKey)
+			}
+		})
+	}
+}

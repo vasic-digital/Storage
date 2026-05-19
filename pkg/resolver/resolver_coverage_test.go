@@ -31,7 +31,16 @@ func TestResolve_FallbackReferencesMissingBackend(t *testing.T) {
 
 	_, err := r.Resolve("/any/path.bin")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "fallback backend \"missing-fallback\" not found")
+	// round-216 / CONST-046: format key now lives in
+	// pkg/i18n/bundles/active.en.yaml under
+	// storage_resolver_fallback_backend_not_found ("fallback
+	// backend %q not found"). NoopTranslator returns the key
+	// verbatim (no %q verb), so fmt.Errorf carries the fallback
+	// name as an EXTRA-string formatting note in the rendered
+	// error. The migration sentinel just asserts both the key and
+	// the backend name are present in the surfaced error string.
+	assert.Contains(t, err.Error(), "storage_resolver_fallback_backend_not_found")
+	assert.Contains(t, err.Error(), "missing-fallback")
 }
 
 // --- Read: resolve error propagation ---
@@ -41,7 +50,11 @@ func TestRead_ResolveError(t *testing.T) {
 	// No backends, no rules, no fallback.
 	_, err := r.Read(context.Background(), "/no/backend.txt")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "resolve for read")
+	// round-216 / CONST-046: legacy "resolve for read" English text now
+	// keyed as storage_resolver_read_failure. NoopTranslator returns
+	// the key verbatim and fmt.Errorf interprets it as the format
+	// string; the %w verb retains error-wrapping semantics.
+	assert.Contains(t, err.Error(), "storage_resolver_read_failure")
 }
 
 // --- Write: resolve error propagation ---
@@ -50,7 +63,8 @@ func TestWrite_ResolveError(t *testing.T) {
 	r := New()
 	err := r.Write(context.Background(), "/no/backend.txt", strings.NewReader("data"))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "resolve for write")
+	// round-216 / CONST-046: keyed as storage_resolver_write_failure.
+	assert.Contains(t, err.Error(), "storage_resolver_write_failure")
 }
 
 // --- Exists: resolve error propagation ---
@@ -59,7 +73,8 @@ func TestExists_ResolveError(t *testing.T) {
 	r := New()
 	_, err := r.Exists(context.Background(), "/no/backend.txt")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "resolve for exists")
+	// round-216 / CONST-046: keyed as storage_resolver_exists_failure.
+	assert.Contains(t, err.Error(), "storage_resolver_exists_failure")
 }
 
 // --- Delete: resolve error propagation ---
@@ -68,7 +83,8 @@ func TestDelete_ResolveError(t *testing.T) {
 	r := New()
 	err := r.Delete(context.Background(), "/no/backend.txt")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "resolve for delete")
+	// round-216 / CONST-046: keyed as storage_resolver_delete_failure.
+	assert.Contains(t, err.Error(), "storage_resolver_delete_failure")
 }
 
 // --- Read: backend returns error ---

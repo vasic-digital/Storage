@@ -106,7 +106,8 @@ func (r *Resolver) Resolve(path string) (Backend, error) {
 		b, ok := r.backends[r.fallback]
 		if !ok {
 			return nil, fmt.Errorf(
-				"fallback backend %q not found", r.fallback,
+				translator.T("storage_resolver_fallback_backend_not_found", nil),
+				r.fallback,
 			)
 		}
 		return b, nil
@@ -119,7 +120,7 @@ func (r *Resolver) Resolve(path string) (Backend, error) {
 func (r *Resolver) Read(ctx context.Context, path string) (io.ReadCloser, error) {
 	b, err := r.Resolve(path)
 	if err != nil {
-		return nil, fmt.Errorf("resolve for read: %w", err)
+		return nil, fmt.Errorf(translator.T("storage_resolver_read_failure", nil), err)
 	}
 	return b.Read(ctx, path)
 }
@@ -128,7 +129,7 @@ func (r *Resolver) Read(ctx context.Context, path string) (io.ReadCloser, error)
 func (r *Resolver) Write(ctx context.Context, path string, data io.Reader) error {
 	b, err := r.Resolve(path)
 	if err != nil {
-		return fmt.Errorf("resolve for write: %w", err)
+		return fmt.Errorf(translator.T("storage_resolver_write_failure", nil), err)
 	}
 	return b.Write(ctx, path, data)
 }
@@ -137,7 +138,7 @@ func (r *Resolver) Write(ctx context.Context, path string, data io.Reader) error
 func (r *Resolver) Exists(ctx context.Context, path string) (bool, error) {
 	b, err := r.Resolve(path)
 	if err != nil {
-		return false, fmt.Errorf("resolve for exists: %w", err)
+		return false, fmt.Errorf(translator.T("storage_resolver_exists_failure", nil), err)
 	}
 	return b.Exists(ctx, path)
 }
@@ -146,7 +147,7 @@ func (r *Resolver) Exists(ctx context.Context, path string) (bool, error) {
 func (r *Resolver) Delete(ctx context.Context, path string) error {
 	b, err := r.Resolve(path)
 	if err != nil {
-		return fmt.Errorf("resolve for delete: %w", err)
+		return fmt.Errorf(translator.T("storage_resolver_delete_failure", nil), err)
 	}
 	return b.Delete(ctx, path)
 }

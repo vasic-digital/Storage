@@ -137,7 +137,7 @@ func NewGCPProvider(
 	config *ProviderConfig,
 ) (*GCPProvider, error) {
 	if projectID == "" {
-		return nil, fmt.Errorf("project_id is required")
+		return nil, fmt.Errorf("%s", translator.T("storage_provider_gcp_project_id_required", nil))
 	}
 	if location == "" {
 		location = "us-central1"
@@ -173,7 +173,7 @@ func (p *GCPProvider) Credentials() map[string]string {
 // HealthCheck verifies that GCP credentials are configured.
 func (p *GCPProvider) HealthCheck(_ context.Context) error {
 	if p.ProjectID == "" {
-		return fmt.Errorf("GCP project ID not configured")
+		return fmt.Errorf("%s", translator.T("storage_provider_gcp_project_id_not_configured", nil))
 	}
 	return nil
 }
@@ -200,10 +200,10 @@ func NewAzureProvider(
 	config *ProviderConfig,
 ) (*AzureProvider, error) {
 	if subscriptionID == "" {
-		return nil, fmt.Errorf("subscription_id is required")
+		return nil, fmt.Errorf("%s", translator.T("storage_provider_azure_subscription_id_required", nil))
 	}
 	if tenantID == "" {
-		return nil, fmt.Errorf("tenant_id is required")
+		return nil, fmt.Errorf("%s", translator.T("storage_provider_azure_tenant_id_required", nil))
 	}
 	if config == nil {
 		config = DefaultProviderConfig()
@@ -239,7 +239,7 @@ func (p *AzureProvider) Credentials() map[string]string {
 // HealthCheck verifies that Azure credentials are configured.
 func (p *AzureProvider) HealthCheck(_ context.Context) error {
 	if p.SubscriptionID == "" || p.TenantID == "" {
-		return fmt.Errorf("Azure credentials not configured")
+		return fmt.Errorf("%s", translator.T("storage_provider_azure_credentials_not_configured", nil))
 	}
 	return nil
 }
