@@ -1,0 +1,34 @@
+# challenges/fixtures/locales.yaml
+#
+# Round-283 5-locale UX evidence fixtures for digital.vasic.storage.
+# Mirrors the strings emitted by challenges/runner/main.go so that
+# operator-facing localisation regressions surface as fixture drift
+# during code review, not as silent UX bluffs in production.
+#
+# Strings are summary-line templates; %d substitutions are filled at
+# runtime with (operation_count, bytes_round_tripped). The runner is
+# the source of truth — this file is a reviewer-visible mirror per
+# CONST-046.
+
+schema_version: 1
+date_added: 2026-05-19
+notes: |
+  Defensive use only. These strings DESCRIBE the on-disk lifecycle to
+  human operators. They contain no payload-generation language and
+  no operational evasion guidance.
+locales:
+  - tag: en
+    template: "[en] storage: %d operations exercised, %d bytes round-tripped on real fs (defensive-use only)"
+    note: "English baseline — matches the canonical token 'storage:' grepped by the Challenge."
+  - tag: sr
+    template: "[sr] storage: %d operacija izvršeno, %d bajtova provereno na realnom fs (samo za odbranu)"
+    note: "Serbian Latin — Cyrillic transliteration permitted as long as canonical token preserved."
+  - tag: ja
+    template: "[ja] storage: %d 件の操作を実行、%d バイトを実ファイルシステムで往復(防御用途のみ)"
+    note: "Japanese — full-width comma + parens, defensive-use clause preserved."
+  - tag: es
+    template: "[es] storage: %d operaciones ejecutadas, %d bytes ida-y-vuelta en fs real (uso defensivo)"
+    note: "Spanish — past participle 'ejecutadas' (operaciones is feminine plural)."
+  - tag: de
+    template: "[de] storage: %d Operationen ausgeführt, %d Bytes auf echtem Dateisystem geprüft (nur Verteidigung)"
+    note: "German — compound noun 'Dateisystem'; defensive clause shortened to 'nur Verteidigung'."
