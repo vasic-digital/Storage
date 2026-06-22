@@ -23,7 +23,7 @@ import (
 // is left as a build-time wiring step: the test enumerates the env
 // vars required and skips loudly when absent. Wiring a concrete
 // object.ObjectStore against real S3 lives in the consuming
-// application (HelixPlay's storage bootstrap) — this test boundary
+// application (the project's storage bootstrap) — this test boundary
 // only verifies that, GIVEN a real client, SyncRecording produces
 // real bytes in the real bucket.
 //
@@ -60,7 +60,7 @@ func TestSyncRecording_RealS3Upload(t *testing.T) {
 		t.Skip("SKIP-OK: #STORAGE-S3-REAL-ROUND37 — env vars present but no " +
 			"object.ObjectStore adapter wired into the test harness; wire " +
 			"a concrete minio.Client or AWS SDK adapter in the consuming " +
-			"app (HelixPlay storage bootstrap) and re-run")
+			"app (the project storage bootstrap) and re-run")
 	}
 
 	cfg := DefaultRecordingConfig()

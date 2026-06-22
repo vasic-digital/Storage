@@ -12,7 +12,7 @@
 //	t := i18n.NoopTranslator{} // production default — returns key verbatim
 //	msg := t.T("storage_provider_aws_access_key_required", nil)
 //
-// Consuming projects (e.g. HelixCode) wire a real translator that loads
+// Consuming projects wire a real translator that loads
 // bundles/active.en.yaml + locale overrides; the Storage submodule
 // remains project-not-aware.
 package i18n

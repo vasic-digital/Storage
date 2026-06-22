@@ -14,7 +14,7 @@ import (
 // translator; consumers swap it via SetTranslator at startup.
 //
 // Per CONST-051(B) the seam is project-not-aware: this package never
-// imports a HelixCode-specific catalogue; the consuming project is
+// imports a project-specific catalogue; the consuming project is
 // responsible for providing the real Translator implementation.
 var translator i18n.Translator = i18n.NoopTranslator{}
 
