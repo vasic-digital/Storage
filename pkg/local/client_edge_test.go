@@ -106,7 +106,7 @@ func TestClient_SymbolicLinks(t *testing.T) {
 	linkPath := filepath.Join(dir, "bucket", "link.txt")
 	err = os.Symlink(realPath, linkPath)
 	if err != nil {
-		t.Skipf("symlinks not supported: %v", err)
+		t.Skipf("symlinks not supported: %v (SKIP-OK: #fs-no-symlinks)", err)
 	}
 
 	// GetObject on the symlink should work
